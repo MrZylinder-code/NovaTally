@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="de" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Spielzeit</title>
+  <link rel="icon" href="/icon.ico">
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <a class="logo" href="#/uebersicht">
+        <img src="/icon.ico" alt="" width="30" height="30">
+        <span>Spielzeit</span>
+      </a>
+      <nav class="nav">
+        <a href="#/uebersicht" data-route="uebersicht">
+          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+          <span>Übersicht</span>
+        </a>
+        <a href="#/spiele" data-route="spiele">
+          <svg viewBox="0 0 24 24"><path d="M6.5 7.5h11a4.5 4.5 0 0 1 4.3 5.8l-.6 2a3 3 0 0 1-5.2 1L14.5 15h-5L8 16.3a3 3 0 0 1-5.2-1l-.6-2A4.5 4.5 0 0 1 6.5 7.5z"/><path d="M7.5 10v4M5.5 12h4"/><circle cx="15.5" cy="11" r=".6"/><circle cx="17.5" cy="13" r=".6"/></svg>
+          <span>Spiele</span>
+        </a>
+        <a href="#/verlauf" data-route="verlauf">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>
+          <span>Verlauf</span>
+        </a>
+        <a href="#/einstellungen" data-route="einstellungen">
+          <svg viewBox="0 0 24 24"><path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg>
+          <span>Einstellungen</span>
+        </a>
+      </nav>
+      <div class="sidebar-status" id="sidebar-status">
+        <span class="dot"></span><span class="label">Verbinde …</span>
+      </div>
+    </aside>
+    <main class="main" id="main" tabindex="-1"></main>
+  </div>
+  <div class="tooltip" id="tooltip" role="tooltip"></div>
+  <dialog class="modal" id="modal">
+    <form method="dialog">
+      <h3 id="modal-title"></h3>
+      <p id="modal-text"></p>
+      <input id="modal-input" type="text" autocomplete="off">
+      <div class="modal-actions">
+        <button value="cancel" class="btn ghost">Abbrechen</button>
+        <button value="ok" class="btn primary" id="modal-ok">OK</button>
+      </div>
+    </form>
+  </dialog>
+  <div class="toast" id="toast"></div>
+  <script src="/app.js"></script>
+</body>
+</html>
