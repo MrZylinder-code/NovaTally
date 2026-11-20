@@ -1,7 +1,7 @@
 # Übergabe: Spielzeit – Windows-Spielzeit-Tracker fertig entwickeln
 
 Du übernimmst ein angefangenes Projekt in `/home/dev/projects/Spielzeit`.
-**Lies zuerst `GOAL.md`** – das ist die verbindliche Zielbeschreibung (Muss-Anforderungen,
+**Lies zuerst `docs/GOAL.md`** – das ist die verbindliche Zielbeschreibung (Muss-Anforderungen,
 Nicht-Ziele, Abnahmekriterien). Diese Übergabe ergänzt die dort getroffenen Entscheidungen
 um den Bauplan. Sprache der App und der Antworten an den Nutzer: **Deutsch**.
 

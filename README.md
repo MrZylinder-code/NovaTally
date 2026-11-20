@@ -1,5 +1,7 @@
 # Spielzeit
 
+[![Tests](https://github.com/MrZylinder-code/Spielzeit/actions/workflows/tests.yml/badge.svg)](https://github.com/MrZylinder-code/Spielzeit/actions/workflows/tests.yml)
+
 Spielzeit erfasst automatisch, wie lange du welches PC-Spiel spielst, wie früher Xfire, nur ohne Chat und ohne Konto.
 Die App läuft unauffällig im Infobereich (Tray) und zeigt deine Spielzeit in einer modernen Oberfläche:
 pro Spiel, pro Tag, Woche, Monat und Jahr, über alle Launcher hinweg.
@@ -103,3 +105,13 @@ Ohne Tray/Fenster starten (auch unter Linux): `python Spielzeit.pyw --demo --hea
 Sicherheit des lokalen Servers: Er lauscht nur auf `127.0.0.1`, prüft den `Host`-Header (Schutz gegen
 DNS-Rebinding), verlangt für alle `/api/*`-Aufrufe den Header `X-Spielzeit: 1` (fremde Webseiten scheitern am
 CORS-Preflight) und sendet keine CORS-Header.
+
+## Mitmachen
+
+Beiträge sind willkommen: Fehlerberichte, neue Erkennungsregeln für Launcher, Verbesserungen an der Oberfläche.
+Änderungen kommen ausschließlich über **Pull Requests** in `main`. Wie das geht, steht in
+[CONTRIBUTING.md](CONTRIBUTING.md). Die ursprüngliche Zielbeschreibung und der Bauplan liegen in [`docs/`](docs/).
+
+## Lizenz
+
+[MIT](LICENSE): frei nutzbar, veränderbar und weitergebbar, solange der Lizenzhinweis erhalten bleibt.
