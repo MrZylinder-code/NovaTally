@@ -17,6 +17,12 @@ und dem Nutzer am Ende erklären, wie er auf Windows die `Spielzeit.exe` baut un
   `data_dir()` (`%APPDATA%\Spielzeit`, überschreibbar mit Env `SPIELZEIT_DATA`), `db_path()`,
   `resource_dir()` (funktioniert auch in PyInstaller-EXE), `IS_WINDOWS`
 
+## Git
+- Der Ordner ist ein Git-Repo mit `origin` = `git@github.com:MrZylinder-code/Spielzeit.git` (privat),
+  Branch `main`. `gh` ist angemeldet.
+- In sinnvollen Schritten committen (deutsche Commit-Nachrichten). Am Ende nach erfolgreichen
+  Tests nach `origin/main` pushen.
+
 ## Wichtige Rahmenbedingungen der Entwicklungsumgebung
 - Entwickelt wird auf **Linux**, Ziel ist **Windows**. Python 3.13 ist da, aber **kein pip,
   kein node**. `psutil`, `pystray`, `Pillow` lassen sich hier nicht installieren.
