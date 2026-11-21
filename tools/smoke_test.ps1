@@ -27,5 +27,11 @@ try {
   }
 } finally {
   Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+  # Eine PyInstaller-EXE laeuft als zwei Prozesse (Starter + Programm) - beide beenden
+  Get-Process NovaTally -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+  for ($i = 0; $i -lt 20; $i++) {
+    if (-not (Get-NetTCPConnection -LocalPort 47815 -State Listen -ErrorAction SilentlyContinue)) { break }
+    Start-Sleep -Milliseconds 500
+  }
   Remove-Item -Recurse -Force $env:NOVATALLY_DATA -ErrorAction SilentlyContinue
 }

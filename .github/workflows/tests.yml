@@ -37,6 +37,7 @@ jobs:
           python -c "from novatally.tray import draw_icon; print(draw_icon(paused=False).size, draw_icon(paused=True).size)"
           python -c "from novatally import autostart; print(autostart.command())"
           python -c "from novatally import library; e = library.scan(); print(len(e), 'Spiele erkannt')"
+          python -c "from novatally import window; assert window.available(), 'pywebview fehlt'; import webview; print('pywebview', webview.__version__ if hasattr(webview, '__version__') else 'ok')"
 
   build:
     name: Windows-EXE bauen
@@ -57,6 +58,11 @@ jobs:
       - name: EXE starten und Oberfläche abrufen
         shell: pwsh
         run: ./tools/smoke_test.ps1 -Exe dist\NovaTally.exe
+
+      - name: Eigenes Fenster prüfen (informativ)
+        continue-on-error: true
+        shell: pwsh
+        run: ./tools/window_test.ps1 -Exe dist\NovaTally.exe
 
       - name: EXE als Download bereitstellen
         uses: actions/upload-artifact@v4

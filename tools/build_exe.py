@@ -23,7 +23,16 @@ def main():
         import make_icon  # liegt im selben Ordner
 
         make_icon.make_ico(os.path.join(web, "icon.ico"))
+    # Eigenes Fenster: pywebview samt WebView2-DLLs und pythonnet (.NET-Brücke) mitnehmen
+    extra = []
+    for module, flag in (("webview", "--collect-all"), ("clr_loader", "--collect-all"), ("pythonnet", "--collect-all")):
+        try:
+            __import__(module)
+            extra += [flag, module]
+        except Exception:  # noqa: BLE001 – nicht installiert: Fenster fällt auf Edge zurück
+            print(f"Hinweis: {module} nicht installiert – wird nicht eingepackt")
     PyInstaller.__main__.run([
+        *extra,
         "--noconfirm", "--clean", "--log-level", "WARN",
         "--noconsole", "--onefile", "--name", "NovaTally",
         "--icon", os.path.join(web, "icon.ico"),
