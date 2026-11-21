@@ -85,8 +85,58 @@ def find_edge():
     return shutil.which("msedge")
 
 
+def is_app_window(title, class_name):
+    """Ist das ein Browserfenster mit der NovaTally-Oberfläche? (Edge/Chrome: Klasse Chrome_WidgetWin_*)"""
+    if not class_name.startswith("Chrome_WidgetWin"):
+        return False
+    return title == APP_NAME or title.startswith(APP_NAME + " ")
+
+
+def focus_existing_window():
+    """Holt ein bereits offenes NovaTally-Fenster nach vorne. True, wenn eins gefunden wurde (nur Windows)."""
+    if not IS_WINDOWS:
+        return False
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        user32 = ctypes.windll.user32
+        found = []
+
+        @ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+        def callback(hwnd, _lparam):
+            if not user32.IsWindowVisible(hwnd):
+                return True
+            length = user32.GetWindowTextLengthW(hwnd)
+            if not length:
+                return True
+            title = ctypes.create_unicode_buffer(length + 1)
+            user32.GetWindowTextW(hwnd, title, length + 1)
+            cls = ctypes.create_unicode_buffer(256)
+            user32.GetClassNameW(hwnd, cls, 256)
+            if is_app_window(title.value, cls.value):
+                found.append(hwnd)
+                return False  # erstes Fenster genügt
+            return True
+
+        user32.EnumWindows(callback, 0)
+        if not found:
+            return False
+        hwnd = found[0]
+        user32.ShowWindow(hwnd, 9 if user32.IsIconic(hwnd) else 5)  # SW_RESTORE / SW_SHOW
+        if not user32.SetForegroundWindow(hwnd):
+            user32.BringWindowToTop(hwnd)
+        log.info("Vorhandenes Fenster nach vorne geholt")
+        return True
+    except Exception:  # noqa: BLE001 – im Zweifel lieber ein neues Fenster öffnen
+        log.exception("Vorhandenes Fenster konnte nicht gesucht werden")
+        return False
+
+
 def open_window(port):
-    """App-Fenster über Edge öffnen (ohne Adressleiste), sonst Standardbrowser."""
+    """Vorhandenes Fenster nach vorne holen – sonst App-Fenster über Edge öffnen, sonst Standardbrowser."""
+    if focus_existing_window():
+        return
     url = url_for(port)
     edge = find_edge()
     if edge:

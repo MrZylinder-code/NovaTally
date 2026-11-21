@@ -18,6 +18,13 @@ try {
   if ($html.Content -notmatch "app.js") { throw "Oberflaeche fehlt in der EXE" }
   $o = Invoke-RestMethod -Uri "$base/api/overview?range=30" -Headers $headers
   Write-Host "OK: NovaTally $($ping.version) laeuft - $($o.games) Spiele, $($o.sessions) Sitzungen in der Demo"
+  # Update-Suche aus der gebauten EXE (prueft u. a. die SSL-Zertifikate im PyInstaller-Paket)
+  try {
+    $u = Invoke-RestMethod -Uri "$base/api/update/check" -Headers $headers -TimeoutSec 60
+    Write-Host "OK: Update-Suche aus der EXE - neueste Version $($u.latest), neuer: $($u.newer)"
+  } catch {
+    throw "Update-Suche aus der EXE fehlgeschlagen: $($_.ErrorDetails.Message)"
+  }
 } finally {
   Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
   Remove-Item -Recurse -Force $env:NOVATALLY_DATA -ErrorAction SilentlyContinue

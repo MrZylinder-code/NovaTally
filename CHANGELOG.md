@@ -3,6 +3,14 @@
 Alle nennenswerten Änderungen an NovaTally. Für jedes Release übernimmt der Release-Workflow den passenden
 Abschnitt (`## <Version>`) als Beschreibung.
 
+## 1.1.1
+
+- **Update-Suche repariert**: In der Windows-EXE meldete sie „GitHub ist gerade nicht erreichbar“. NovaTally bringt
+  jetzt die nötigen Sicherheitszertifikate selbst mit, nutzt notfalls einen Ausweichweg über die Release-Seite und
+  nennt bei Problemen den genauen Grund (z. B. Zertifikat, Zeitüberschreitung, keine Internetverbindung).
+- **Kein doppeltes Fenster mehr**: Ein Klick aufs Tray-Symbol (oder ein zweiter Start) holt ein bereits offenes
+  NovaTally-Fenster nach vorne, statt ein weiteres zu öffnen.
+
 ## 1.1.0
 
 - **Update-Button**: *Einstellungen → Updates → Nach Updates suchen* zeigt neue Versionen samt Änderungen.
