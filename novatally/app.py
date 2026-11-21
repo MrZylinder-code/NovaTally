@@ -16,7 +16,7 @@ import urllib.request
 import webbrowser
 from pathlib import Path
 
-from . import APP_NAME, __version__, autostart, demo, library, updater
+from . import APP_NAME, __version__, autostart, demo, library, updater, window
 from .config import IS_WINDOWS, PORT, data_dir, legacy_data_dir, migrate_legacy_db
 from .db import Database
 from .server import AppContext, start_server
@@ -68,6 +68,17 @@ def port_in_use(port):
         with socket.create_connection(("127.0.0.1", port), timeout=0.5):
             return True
     except OSError:
+        return False
+
+
+def request_show(port, timeout=3.0):
+    """Bittet eine laufende Instanz, ihr eigenes Fenster zu zeigen. True bei Erfolg."""
+    req = urllib.request.Request(url_for(port) + "api/window/show", data=b"{}", method="POST",
+                                 headers={"X-NovaTally": "1", "Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return r.status == 200
+    except Exception:  # noqa: BLE001
         return False
 
 
@@ -171,8 +182,8 @@ def main(argv=None):
     log.info("%s %s startet (Daten: %s)", APP_NAME, __version__, folder)
 
     def already_running():
-        log.info("NovaTally läuft bereits – öffne nur das Fenster")
-        if not args.headless and not args.autostart:
+        log.info("NovaTally läuft bereits – zeige nur das Fenster")
+        if not args.headless and not args.autostart and not request_show(args.port):
             open_window(args.port)
         return 0
 
@@ -266,8 +277,8 @@ def main(argv=None):
         server.shutdown()
         server.server_close()  # Port sofort freigeben (wichtig für den Neustart nach einem Update)
 
-    if not args.headless and not args.updated and (not args.autostart or first_run):
-        open_window(args.port)
+    # Fenster beim Start zeigen? Beim Windows-Start (Autostart) nicht – außer beim allerersten Mal.
+    show_at_start = not args.headless and (not args.autostart or first_run)
 
     # ---- Optional: beim Start nach Updates suchen (standardmäßig aus)
     if not args.demo and db.get_setting("update_auto", False):
@@ -282,15 +293,36 @@ def main(argv=None):
                 log.info("Update-Prüfung: %s", e)
         threading.Thread(target=auto_check, name="UpdateCheck", daemon=True).start()
 
-    tray = None
-    if not args.headless:
-        try:
-            from .tray import Tray
+    # ---- Eigenes Fenster (pywebview + WebView2), sonst Edge/Browser
+    tray_box = {}
 
-            tray = Tray(db, lambda: open_window(args.port), shutdown)
-            ctx.on_change = tray.refresh
-        except ImportError:
-            log.warning("pystray/Pillow fehlen – kein Tray-Symbol")
+    def first_hide_hint():
+        if db.get_setting("hide_hint_shown", False):
+            return
+        db.set_setting("hide_hint_shown", True)
+        t = tray_box.get("tray")
+        if t is not None:
+            t.notify("NovaTally zählt im Infobereich weiter. Beenden: Rechtsklick auf das Symbol → Beenden.")
+
+    win = None
+    if not args.headless and window.available():
+        try:
+            win = window.AppWindow(url_for(args.port), folder / "webview",
+                                   hidden=not show_at_start, on_first_hide=first_hide_hint)
+        except Exception:  # noqa: BLE001
+            log.exception("Eigenes Fenster nicht verfügbar – nutze Edge/Browser")
+            win = None
+
+    def show_ui():
+        if win is not None:
+            win.show()
+        else:
+            open_window(args.port)
+
+    def request_quit():
+        stop.set()
+        if win is not None:
+            win.destroy()
 
     restart_cmd = []
 
@@ -298,17 +330,33 @@ def main(argv=None):
         """Nach einem Update: sauber beenden, danach startet die neue Version."""
         passthrough = (["--headless"] if args.headless else []) + (["--port", str(args.port)] if args.port != PORT else [])
         restart_cmd[:] = list(cmd) + passthrough
-        if tray is not None:
-            tray.icon.stop()
-        else:
-            stop.set()
+        request_quit()
 
     ctx.request_restart = request_restart
+    ctx.show_window = show_ui if not args.headless else None
 
-    if tray is not None:
-        tray.run()  # blockiert im Hauptthread bis „Beenden“
-        shutdown()
-    else:
+    # ---- Tray-Symbol in eigenem Thread (der Hauptthread gehört dem Fenster)
+    if not args.headless:
+        tray_ready = threading.Event()
+
+        def tray_thread():
+            try:
+                from .tray import Tray
+
+                t = Tray(db, show_ui, request_quit)
+            except ImportError:
+                log.warning("pystray/Pillow fehlen – kein Tray-Symbol")
+                tray_ready.set()
+                return
+            tray_box["tray"] = t
+            ctx.on_change = t.refresh
+            tray_ready.set()
+            t.run()
+
+        threading.Thread(target=tray_thread, name="Tray", daemon=True).start()
+        tray_ready.wait(10)
+
+    def wait_until_stopped():
         for sig in (signal.SIGINT, signal.SIGTERM):
             try:
                 signal.signal(sig, lambda *_: stop.set())
@@ -319,7 +367,28 @@ def main(argv=None):
                 pass
         except KeyboardInterrupt:
             pass
-        shutdown()
+
+    if win is not None:
+        try:
+            win.run()  # blockiert, bis das Fenster beim Beenden zerstört wird
+        except Exception:  # noqa: BLE001 – z. B. WebView2-Laufzeit fehlt
+            log.exception("Eigenes Fenster konnte nicht starten – nutze Edge/Browser")
+            win = None
+            if show_at_start and not stop.is_set():
+                open_window(args.port)
+            wait_until_stopped()
+    else:
+        if show_at_start and not args.updated:
+            open_window(args.port)
+        wait_until_stopped()
+
+    t = tray_box.get("tray")
+    if t is not None:
+        try:
+            t.icon.stop()
+        except Exception:  # noqa: BLE001
+            pass
+    shutdown()
     db.close()
     if restart_cmd:
         log.info("Starte neue Version: %s", restart_cmd)

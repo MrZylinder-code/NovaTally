@@ -73,6 +73,13 @@ class Tray:
         except Exception:  # noqa: BLE001
             log.exception("Tray-Symbol konnte nicht aktualisiert werden")
 
+    def notify(self, text):
+        """Kurze Windows-Benachrichtigung am Tray-Symbol."""
+        try:
+            self.icon.notify(text, "NovaTally")
+        except Exception:  # noqa: BLE001 – nicht jedes System kann das
+            log.info("Hinweis: %s", text)
+
     def _quit(self, icon=None, item=None):
         self.on_quit()
         self.icon.stop()

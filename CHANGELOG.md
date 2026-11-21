@@ -3,6 +3,15 @@
 Alle nennenswerten Änderungen an NovaTally. Für jedes Release übernimmt der Release-Workflow den passenden
 Abschnitt (`## <Version>`) als Beschreibung.
 
+## 1.2.0
+
+- **Eigenes Fenster**: NovaTally öffnet sich jetzt in einem eigenen Programmfenster (Microsoft WebView2, in
+  Windows 10/11 eingebaut) statt als Edge-Fenster – mit eigenem Eintrag in der Taskleiste und ohne Edge im
+  Hintergrund. Die Oberfläche bleibt gleich.
+- Es gibt immer genau **ein** Fenster: Schließen (X) versteckt es nur, ein Tray-Klick oder ein zweiter Start holt
+  es zurück. Beim ersten Verstecken erklärt ein kurzer Hinweis, dass NovaTally im Infobereich weiterzählt.
+- Fehlt WebView2 ausnahmsweise, öffnet sich die Oberfläche wie bisher über Edge bzw. den Browser.
+
 ## 1.1.1
 
 - **Update-Suche repariert**: In der Windows-EXE meldete sie „GitHub ist gerade nicht erreichbar“. NovaTally bringt

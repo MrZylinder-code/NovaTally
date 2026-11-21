@@ -60,6 +60,7 @@ class AppContext:
         self.process_source = process_source
         self.on_change = None  # z. B. Tray-Symbol aktualisieren
         self.request_restart = None  # von der App gesetzt: beenden und neue Version starten
+        self.show_window = None  # von der App gesetzt: eigenes Fenster zeigen (zweiter Start)
         self.update_info = None  # Ergebnis der letzten Update-Prüfung
         self._library_cache = None
 
@@ -343,6 +344,11 @@ class Handler(BaseHTTPRequestHandler):
         if m:
             if not db.delete_session(int(m.group(1))):
                 raise ApiError(404, "Sitzung nicht gefunden oder läuft noch")
+            return self._json({"ok": True})
+        if path == "/api/window/show":
+            if ctx.show_window is None:
+                raise ApiError(409, "Kein Fenster verfügbar")
+            ctx.show_window()
             return self._json({"ok": True})
         if path == "/api/update/install":
             if ctx.demo:

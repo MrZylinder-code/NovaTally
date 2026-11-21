@@ -45,8 +45,9 @@ Beim ersten Start öffnet sich das Fenster, und NovaTally trägt sich in den Win
 | **Verlauf** | Alle Sitzungen nach Tagen mit Tagessumme |
 | **Einstellungen** | Autostart, Pause, Design (System/Dunkel/Hell), Spiel manuell hinzufügen, eigene Spieleordner, ausgeschlossene Spiele, CSV-Export, Datenordner, erkannte Bibliotheken |
 
-- **Fenster schließen** schließt nur die Ansicht. Das Tracking läuft im Tray weiter.
-  Doppelklick auf das Tray-Symbol (oder ein erneuter Start der App) öffnet das Fenster wieder.
+- **NovaTally hat ein eigenes Fenster.** Schließen (X) versteckt es nur, das Tracking läuft im Tray weiter.
+  Doppelklick auf das Tray-Symbol (oder ein erneuter Start der App) holt dasselbe Fenster wieder nach vorne –
+  es gibt immer nur eins.
 - **Beenden**: Rechtsklick auf das Tray-Symbol → *Beenden*. Dort lässt sich das Tracking auch pausieren.
 - Alle Diagramme zeigen beim Darüberfahren mit der Maus die genauen Werte.
 
@@ -76,8 +77,10 @@ beginnt eine neue Sitzung.
 In `%APPDATA%\NovaTally\novatally.db` (in die Adressleiste des Explorers eingeben). Für ein Backup NovaTally beenden
 und die Datei kopieren. Zusätzlich gibt es den CSV-Export unter *Einstellungen*.
 
-**Das Fenster öffnet sich im normalen Browser statt als eigenes Fenster.**
-NovaTally nutzt Microsoft Edge für ein Fenster ohne Adressleiste. Fehlt Edge, wird der Standardbrowser verwendet.
+**Das Fenster öffnet sich im Browser statt als eigenes Fenster.**
+Das eigene Fenster nutzt Microsoft **WebView2**, das in Windows 10/11 bereits eingebaut ist. Fehlt es ausnahmsweise,
+zeigt NovaTally die Oberfläche als Edge-Fenster ohne Adressleiste bzw. im Standardbrowser. WebView2 lässt sich bei
+Microsoft kostenlos nachinstallieren („WebView2 Runtime“).
 
 **Port 47815 ist belegt.**
 NovaTally nutzt den lokalen Port 47815 (nur auf diesem PC erreichbar). Startest du die App ein zweites Mal,
@@ -107,6 +110,8 @@ ohne Schreibrechte (z. B. `C:\Program Files`), lade die neue Version manuell unt
 ```
 NovaTally.pyw          Einstieg
 novatally/app.py       Einzelinstanz, DB, Tracker, Server, Tray, Fenster  (--demo, --headless, --autostart)
+novatally/window.py    eigenes Fenster (pywebview + WebView2), Schließen = Verstecken
+novatally/updater.py   Update-Suche und -Installation (Releases bzw. git pull)
 novatally/db.py        SQLite-Schema und Zugriffe (WAL, eine Verbindung + Lock)
 novatally/library.py   Spielebibliotheken erkennen
 novatally/tracker.py   Prozess-Abfrage (psutil) und Sitzungslogik
