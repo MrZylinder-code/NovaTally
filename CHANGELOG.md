@@ -3,6 +3,17 @@
 Alle nennenswerten Änderungen an NovaTally. Für jedes Release übernimmt der Release-Workflow den passenden
 Abschnitt (`## <Version>`) als Beschreibung.
 
+## 1.0.1
+
+- **Mehr Spiele werden automatisch erkannt**: NovaTally liest jetzt auch die Windows-Liste der installierten
+  Programme und erkennt darin Spiele bekannter Hersteller – z. B. **Path of Exile** (Standalone-Client von
+  Grinding Gear Games), Spiele aus der **EA app**, von Blizzard/Activision, Riot, Rockstar, CD Projekt,
+  Wargaming, Gaijin, Digital Extremes, HoYoverse, Kuro Games, Square Enix, Jagex u. a.
+- Path of Exile 1 und 2 werden zusätzlich über den Ordner `Grinding Gear Games` und den Registry-Eintrag erkannt.
+- Launcher, Anti-Cheat-Dienste (z. B. Riot Vanguard, BattlEye) und Werkzeuge werden dabei sicher ausgeschlossen,
+  damit nichts dauerhaft als Spielzeit zählt.
+- Bereits manuell hinzugefügte Spiele bleiben unverändert und haben weiter Vorrang.
+
 ## 1.0.0
 
 Erste Version von NovaTally.

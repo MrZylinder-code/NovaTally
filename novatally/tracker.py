@@ -22,6 +22,8 @@ IGNORED_EXE_PARTS = (
     "eadesktop", "battle.net", "riotclient",
     # zusätzlich: Overlays und Hilfsprogramme der Launcher
     "gameoverlayui", "steamservice", "steamerrorreporter", "unitycrashhandler", "errorreporter",
+    # Anti-Cheat-Dienste laufen teils dauerhaft im Hintergrund
+    "vgc.exe", "vgtray", "battleye", "beservice", "easyanticheat.exe",
 )
 
 

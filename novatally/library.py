@@ -39,6 +39,8 @@ SOURCE_LABELS = {
     "ea": "EA",
     "riot": "Riot Games",
     "battlenet": "Battle.net",
+    "ggg": "Grinding Gear Games",
+    "installed": "Installierte Spiele",
     "folder": "Spieleordner",
     "custom": "Eigene Ordner",
     "manual": "Manuell",
@@ -210,14 +212,130 @@ def ubisoft_games():
     return out
 
 
-# --------------------------------------------------------- Battle.net (Uninstall)
-def battlenet_games():
+# ------------------------------------------- Installierte Programme (Uninstall-Liste)
+# Spielefirmen, deren Programme in der Windows-Liste „Installierte Apps“ als Spiel gelten.
+# (Teilstring des Herstellers in Kleinbuchstaben, Quelle)
+GAME_PUBLISHERS = (
+    ("grinding gear", "ggg"),
+    ("blizzard", "battlenet"),
+    ("activision", "battlenet"),
+    ("riot games", "riot"),
+    ("electronic arts", "ea"),
+    ("rockstar games", "installed"),
+    ("cd projekt", "installed"),
+    ("wargaming", "installed"),
+    ("gaijin", "installed"),
+    ("digital extremes", "installed"),
+    ("hoyoverse", "installed"),
+    ("cognosphere", "installed"),
+    ("mihoyo", "installed"),
+    ("kuro games", "installed"),
+    ("square enix", "installed"),
+    ("jagex", "installed"),
+    ("nexon", "installed"),
+    ("pearl abyss", "installed"),
+    ("smilegate", "installed"),
+    ("bungie", "installed"),
+)
+
+# Einträge dieser Hersteller, die KEINE Spiele sind (Launcher, Anti-Cheat, Werkzeuge).
+# Wichtig v. a. für Dienste, die ständig laufen (z. B. Riot Vanguard) – sonst zählte die Uhr dauerhaft.
+NON_GAME_WORDS = (
+    "launcher", "battle.net", "riot client", "vanguard", "ubisoft connect", "gog galaxy",
+    "epic games", "social club", "anticheat", "anti-cheat", "easyanticheat", "battleye",
+    "redistributable", "directx", "runtime", "sdk", "dedicated server", "editor", "toolkit",
+    "uninstall", "updater", "benchmark",
+)
+# Exakte Namen (als Teilwort zu gefährlich: „Dragon Age: Origins“, „SteamWorld Dig“ …)
+NON_GAME_NAMES = {"origin", "ea app", "ea", "steam", "ubisoft", "rockstar games"}
+
+UNINSTALL_KEYS = (
+    ("HKEY_LOCAL_MACHINE", r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall", "KEY_WOW64_64KEY"),
+    ("HKEY_LOCAL_MACHINE", r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall", "KEY_WOW64_32KEY"),
+    ("HKEY_CURRENT_USER", r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall", None),
+)
+
+
+def read_uninstall_entries():
+    """Alle Einträge der Windows-Liste installierter Programme (HKLM 64/32 Bit und HKCU)."""
     if not IS_WINDOWS:
         return []
-    out = []
     import winreg
 
-    root = _reg_open("HKEY_LOCAL_MACHINE", r"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall")
+    out = []
+    for root_name, path, view in UNINSTALL_KEYS:
+        access = winreg.KEY_READ | (getattr(winreg, view, 0) if view else 0)
+        try:
+            root = winreg.OpenKey(getattr(winreg, root_name), path, 0, access)
+        except OSError:
+            continue
+        for sub in _reg_subkeys(root):
+            try:
+                k = winreg.OpenKey(root, sub)
+            except OSError:
+                continue
+            out.append({f: _reg_value(k, f) for f in ("DisplayName", "Publisher", "InstallLocation", "DisplayIcon")})
+    return out
+
+
+def _folder_from_icon(icon):
+    """'"C:\\Spiel\\game.exe",0' -> 'C:\\Spiel' (nur bei .exe-Symbolen)."""
+    if not icon:
+        return None
+    path = icon.split(",")[0].strip().strip('"')
+    if not path.lower().endswith(".exe"):
+        return None
+    return os.path.dirname(path) or None
+
+
+def is_too_generic(folder):
+    """Laufwerk, Programme-Ordner, Windows oder Benutzerordner sind niemals „ein Spiel“."""
+    n = norm_path(folder).rstrip("\\/")
+    parts = [p for p in re.split(r"[\\/]+", n) if p]
+    if len(parts) < 2:
+        return True
+    generic = set()
+    for env in ("ProgramFiles", "ProgramFiles(x86)", "ProgramW6432", "SystemRoot", "windir", "APPDATA",
+                "LOCALAPPDATA", "USERPROFILE", "PROGRAMDATA", "PUBLIC"):
+        v = os.environ.get(env)
+        if v:
+            generic.add(norm_path(v).rstrip("\\/"))
+    return n in generic
+
+
+def uninstall_games(entries=None):
+    """Spiele bekannter Hersteller aus der Liste installierter Programme."""
+    if entries is None:
+        entries = read_uninstall_entries()
+    out = []
+    for e in entries:
+        name = (e.get("DisplayName") or "").strip()
+        publisher = (e.get("Publisher") or "").lower()
+        if not name:
+            continue
+        source = next((src for word, src in GAME_PUBLISHERS if word in publisher), None)
+        low = name.lower()
+        if source is None or low in NON_GAME_NAMES or any(w in low for w in NON_GAME_WORDS):
+            continue
+        loc = (e.get("InstallLocation") or "").strip().strip('"') or _folder_from_icon(e.get("DisplayIcon"))
+        if not loc:
+            continue
+        folder = os.path.normpath(loc)
+        if is_too_generic(folder) or os.path.basename(folder).lower() in NON_GAME_FOLDERS:
+            continue
+        out.append(LibraryEntry(folder, folder_key(folder), name, source, None))
+    return out
+
+
+# ------------------------------------------------------------- Grinding Gear Games
+def ggg_games():
+    """Path of Exile 1/2 als Standalone-Client (HKCU\\Software\\GrindingGearGames\\<Spiel>)."""
+    if not IS_WINDOWS:
+        return []
+    import winreg
+
+    out = []
+    root = _reg_open("HKEY_CURRENT_USER", r"Software\GrindingGearGames")
     if not root:
         return out
     for sub in _reg_subkeys(root):
@@ -225,14 +343,10 @@ def battlenet_games():
             k = winreg.OpenKey(root, sub)
         except OSError:
             continue
-        publisher = (_reg_value(k, "Publisher") or "").lower()
-        if "blizzard" not in publisher:
-            continue
-        name, loc = _reg_value(k, "DisplayName"), _reg_value(k, "InstallLocation")
-        if not (name and loc) or "battle.net" in name.lower():
-            continue
-        folder = os.path.normpath(loc)
-        out.append(LibraryEntry(folder, folder_key(folder), name, "battlenet", None))
+        loc = _reg_value(k, "InstallLocation")
+        if loc:
+            folder = os.path.normpath(loc.strip().strip('"'))
+            out.append(LibraryEntry(folder, folder_key(folder), sub, "ggg", None))
     return out
 
 
@@ -264,6 +378,8 @@ def typical_folders():
         (os.path.join(pf86, "Origin Games"), "ea"),
         (os.path.join(pf, "Epic Games"), "epic"),
         (os.path.join(pf86, "GOG Galaxy", "Games"), "gog"),
+        (os.path.join(pf86, "Grinding Gear Games"), "ggg"),
+        (os.path.join(pf, "Grinding Gear Games"), "ggg"),
     ]
     for drive in _drives():
         folders.append((os.path.join(drive, "XboxGames"), "xbox"))
@@ -275,7 +391,8 @@ def typical_folders():
 def scan(extra_folders=()):
     """Alle Quellen einlesen. Doppelte Ordner werden nur einmal gezählt (erste Quelle gewinnt)."""
     entries = []
-    for fn in (steam_games, epic_games, gog_games, ubisoft_games, battlenet_games):
+    # Reihenfolge = Vorrang bei gleichem Ordner (Steam-Einträge behalten ihre AppID und ihr Cover)
+    for fn in (steam_games, epic_games, gog_games, ubisoft_games, ggg_games, uninstall_games):
         try:
             entries += fn()
         except Exception:  # noqa: BLE001 – eine kaputte Quelle darf nichts verhindern

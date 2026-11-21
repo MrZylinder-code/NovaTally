@@ -566,7 +566,7 @@ async function renderGames() {
 
 const SOURCE_LABELS = {
   steam: 'Steam', epic: 'Epic Games', gog: 'GOG', ubisoft: 'Ubisoft Connect', xbox: 'Xbox / Game Pass', ea: 'EA',
-  riot: 'Riot Games', battlenet: 'Battle.net', folder: 'Spieleordner', custom: 'Eigener Ordner', manual: 'Manuell hinzugefügt',
+  riot: 'Riot Games', battlenet: 'Battle.net', ggg: 'Grinding Gear Games', installed: 'Installiertes Spiel', folder: 'Spieleordner', custom: 'Eigener Ordner', manual: 'Manuell hinzugefügt',
 };
 
 async function renderGame(id) {
