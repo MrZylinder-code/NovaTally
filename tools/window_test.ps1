@@ -14,13 +14,13 @@ try {
   $title = $null
   for ($i = 0; $i -lt 40 -and -not $title; $i++) {
     Start-Sleep -Seconds 1
-    $proc = Get-Process -Id $p.Id -ErrorAction SilentlyContinue
-    if (-not $proc) { throw "NovaTally hat sich beendet - siehe Log in $env:NOVATALLY_DATA\demo\novatally.log" }
-    $proc.Refresh()
-    if ($proc.MainWindowTitle) { $title = $proc.MainWindowTitle }
+    if (-not (Get-Process -Id $p.Id -ErrorAction SilentlyContinue)) { throw "NovaTally hat sich beendet - siehe Log" }
+    # Das Fenster gehoert dem Programm-Prozess (Kind des Starters), daher alle NovaTally-Prozesse ansehen
+    $win = Get-Process NovaTally -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle } | Select-Object -First 1
+    if ($win) { $title = $win.MainWindowTitle; $winPid = $win.Id }
   }
   if ($title -ne "NovaTally") { throw "Kein eigenes Fenster gefunden (Fenstertitel: '$title')" }
-  Write-Host "OK: eigenes Fenster '$title' gehoert zu NovaTally.exe (PID $($p.Id))"
+  Write-Host "OK: eigenes Fenster '$title' gehoert zu NovaTally.exe (PID $winPid)"
 
   $r = Invoke-RestMethod -Method Post -Uri "$base/api/window/show" -Headers $headers -Body "{}" -ContentType "application/json"
   if (-not $r.ok) { throw "Fenster zeigen per API fehlgeschlagen" }
