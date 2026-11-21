@@ -408,6 +408,21 @@ class LibraryTest(unittest.TestCase):
             self.assertEqual(library.scan([tmp])[-1].source, "custom")
 
 
+class FensterTest(unittest.TestCase):
+    def test_novatally_fenster_erkennen(self):
+        from novatally.app import is_app_window
+        self.assertTrue(is_app_window("NovaTally", "Chrome_WidgetWin_1"))
+        self.assertTrue(is_app_window("NovaTally - Microsoft Edge", "Chrome_WidgetWin_1"))
+        self.assertFalse(is_app_window("NovaTally", "CabinetWClass"))  # Explorer-Ordner namens NovaTally
+        self.assertFalse(is_app_window("NovaTallyX", "Chrome_WidgetWin_1"))
+        self.assertFalse(is_app_window("GitHub - NovaTally", "Chrome_WidgetWin_1"))
+
+    @unittest.skipUnless(sys.platform == "win32", "nur unter Windows")
+    def test_fenstersuche_laeuft_unter_windows(self):
+        from novatally.app import focus_existing_window
+        self.assertIn(focus_existing_window(), (True, False))  # darf nie abstürzen
+
+
 class LegacyTest(unittest.TestCase):
     def test_alte_daten_werden_uebernommen(self):
         from novatally.config import migrate_legacy_db

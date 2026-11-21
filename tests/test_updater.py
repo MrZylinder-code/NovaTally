@@ -4,10 +4,13 @@ import hashlib
 import json
 import os
 import shutil
+import socket
+import ssl
 import subprocess
 import sys
 import tempfile
 import unittest
+import urllib.error
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -74,10 +77,38 @@ class ReleaseTest(unittest.TestCase):
 
     def test_kein_netz(self):
         def offline(url, timeout=15):
-            raise OSError("offline")
+            raise urllib.error.URLError(socket.gaierror(11001, "getaddrinfo failed"))
         with self.assertRaises(UpdateError) as cm:
-            updater.check_release("1.0.0", fetch=offline)
-        self.assertIn("nicht erreichbar", str(cm.exception))
+            updater.check_release("1.0.0", fetch=offline, resolve=offline)
+        self.assertIn("Internetverbindung", str(cm.exception))
+
+    def test_ausweichweg_ohne_api(self):
+        def api_gesperrt(url, timeout=15):
+            raise urllib.error.HTTPError(url, 403, "rate limit", {}, None)
+
+        def resolve(url, timeout=15):
+            self.assertEqual(url, updater.RELEASES_URL + "/latest")
+            return updater.RELEASES_URL + "/tag/v9.9.9"
+        info = updater.check_release("1.0.0", fetch=api_gesperrt, resolve=resolve)
+        self.assertTrue(info["newer"])
+        self.assertEqual(info["exe_url"], updater.DOWNLOAD_PREFIX + "v9.9.9/NovaTally.exe")
+        self.assertTrue(info["installable"])
+
+    def test_verstaendliche_fehlergruende(self):
+        d = updater.describe
+        self.assertIn("begrenzt", d(urllib.error.HTTPError("u", 403, "x", {}, None)))
+        self.assertIn("HTTP 500", d(urllib.error.HTTPError("u", 500, "x", {}, None)))
+        self.assertIn("Sicherheitszertifikat", d(urllib.error.URLError(
+            ssl.SSLCertVerificationError(1, "[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed"))))
+        self.assertIn("Zeitüberschreitung", d(urllib.error.URLError(socket.timeout("timed out"))))
+        self.assertIn("nicht gefunden", d(urllib.error.URLError(socket.gaierror(11001, "getaddrinfo failed"))))
+        self.assertIn("abgelehnt", d(urllib.error.URLError(ConnectionRefusedError(10061, "refused"))))
+
+    def test_zertifikate_werden_geladen(self):
+        ctx = updater.ssl_context()
+        self.assertTrue(ctx.check_hostname)
+        self.assertEqual(ctx.verify_mode, ssl.CERT_REQUIRED)
+        self.assertGreater(len(ctx.get_ca_certs()) + ctx.cert_store_stats()["x509_ca"], 0)
 
     def test_download_mit_richtiger_pruefsumme(self):
         fetch = fake_release()

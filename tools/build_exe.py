@@ -29,6 +29,8 @@ def main():
         "--icon", os.path.join(web, "icon.ico"),
         "--add-data", f"{web}{sep}{web}",
         "--hidden-import", "pystray._win32",
+        # Stammzertifikate für die Update-Suche (falls Windows sie noch nicht kennt)
+        "--collect-data", "certifi",
         "NovaTally.pyw",
     ])
     exe = ROOT / "dist" / ("NovaTally.exe" if sys.platform == "win32" else "NovaTally")

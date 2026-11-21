@@ -10,8 +10,11 @@ import logging
 import os
 import re
 import shutil
+import socket
+import ssl
 import subprocess
 import sys
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -47,17 +50,73 @@ def is_newer(latest, current):
     return a + [0] * (n - len(a)) > b + [0] * (n - len(b))
 
 
-def _fetch(url, timeout=15):
-    """HTTP-GET. Bewusst ohne persönliche Daten: nur App-Name und Version im User-Agent."""
-    req = urllib.request.Request(url, headers={
-        "User-Agent": f"{APP_NAME}/{__version__}",
+_SSL_CONTEXT = None
+
+
+def ssl_context():
+    """Zertifikate aus Windows UND aus certifi (falls mitgeliefert).
+
+    Python unter Windows liest nur die Zertifikate, die schon im Windows-Speicher liegen. Windows lädt fehlende
+    Stammzertifikate aber erst bei Bedarf nach – dann scheitert die Prüfung von github.com. certifi bringt
+    die üblichen Stammzertifikate selbst mit.
+    """
+    global _SSL_CONTEXT
+    if _SSL_CONTEXT is None:
+        ctx = ssl.create_default_context()
+        try:
+            import certifi
+
+            ctx.load_verify_locations(cafile=certifi.where())
+        except Exception:  # noqa: BLE001 – certifi ist optional
+            pass
+        _SSL_CONTEXT = ctx
+    return _SSL_CONTEXT
+
+
+def _request(url, method="GET"):
+    return urllib.request.Request(url, method=method, headers={
+        "User-Agent": f"{APP_NAME}/{__version__}",  # bewusst ohne persönliche Daten
         "Accept": "application/vnd.github+json" if "api.github.com" in url else "*/*",
     })
-    with urllib.request.urlopen(req, timeout=timeout) as r:
+
+
+def _fetch(url, timeout=15):
+    """HTTP-GET, gibt den Inhalt zurück."""
+    with urllib.request.urlopen(_request(url), timeout=timeout, context=ssl_context()) as r:
         data = r.read(MAX_DOWNLOAD + 1)
     if len(data) > MAX_DOWNLOAD:
         raise UpdateError("Download ist unerwartet groß – abgebrochen.")
     return data
+
+
+def _resolve(url, timeout=15):
+    """Folgt Weiterleitungen und gibt die endgültige Adresse zurück."""
+    with urllib.request.urlopen(_request(url, "HEAD"), timeout=timeout, context=ssl_context()) as r:
+        return r.geturl()
+
+
+def describe(e):
+    """Verständlicher Grund für einen Netzwerkfehler."""
+    if isinstance(e, UpdateError):
+        return str(e)
+    if isinstance(e, urllib.error.HTTPError):
+        if e.code in (403, 429):
+            return f"GitHub begrenzt gerade die Anfragen (HTTP {e.code}). Bitte in einer Stunde noch einmal versuchen."
+        return f"GitHub antwortet mit einem Fehler (HTTP {e.code})."
+    reason = getattr(e, "reason", e)
+    text = str(reason)
+    if isinstance(reason, ssl.SSLCertVerificationError) or "CERTIFICATE_VERIFY_FAILED" in text:
+        return "Das Sicherheitszertifikat von GitHub konnte nicht geprüft werden (SSL). " \
+               "Ein Virenscanner oder Proxy kann das verursachen."
+    if isinstance(reason, ssl.SSLError):
+        return f"Sichere Verbindung zu GitHub fehlgeschlagen ({text})."
+    if isinstance(reason, (socket.timeout, TimeoutError)) or "timed out" in text:
+        return "Zeitüberschreitung bei der Verbindung zu GitHub."
+    if isinstance(reason, socket.gaierror):
+        return "github.com wurde nicht gefunden – besteht eine Internetverbindung?"
+    if isinstance(reason, (ConnectionRefusedError, ConnectionResetError)):
+        return "Die Verbindung zu GitHub wurde abgelehnt (Firewall oder Proxy?)."
+    return f"Verbindung zu GitHub fehlgeschlagen ({type(reason).__name__}: {text})."
 
 
 def release_notes(body):
@@ -76,13 +135,37 @@ def mode():
 
 
 # ------------------------------------------------------------------ EXE-Modus
-def check_release(current=__version__, fetch=_fetch):
+def _latest_via_release_page(current, resolve):
+    """Ausweichweg ohne GitHub-API: /releases/latest leitet auf /releases/tag/<tag> weiter."""
+    final = resolve(f"{RELEASES_URL}/latest")
+    m = re.search(r"/releases/tag/([^/?#]+)$", final or "")
+    if not m:
+        raise UpdateError("Auf GitHub ist noch kein Release veröffentlicht.")
+    tag = m.group(1)
+    base = f"{DOWNLOAD_PREFIX}{tag}/"
+    return {
+        "mode": "exe", "current": current, "latest": tag.lstrip("v"),
+        "newer": is_newer(tag, current),
+        "notes": "Die Änderungen stehen auf der Release-Seite.",
+        "url": final, "exe_url": base + EXE_NAME, "sha_url": base + EXE_NAME + ".sha256",
+        "installable": True,
+    }
+
+
+def check_release(current=__version__, fetch=_fetch, resolve=_resolve):
     try:
         data = json.loads(fetch(LATEST_API).decode("utf-8"))
     except UpdateError:
         raise
-    except Exception as e:  # noqa: BLE001 – Netzwerk, JSON …
-        raise UpdateError("GitHub ist gerade nicht erreichbar. Bitte später noch einmal versuchen.") from e
+    except Exception as api_error:  # noqa: BLE001 – Netzwerk, JSON, Limit …
+        log.warning("Update-Prüfung über die GitHub-API fehlgeschlagen: %r", api_error)
+        try:
+            return _latest_via_release_page(current, resolve)
+        except UpdateError:
+            raise
+        except Exception as page_error:  # noqa: BLE001
+            log.warning("Update-Prüfung über die Release-Seite fehlgeschlagen: %r", page_error)
+            raise UpdateError(describe(api_error)) from api_error
     tag = data.get("tag_name") or ""
     assets = {a.get("name"): a.get("browser_download_url") for a in data.get("assets", [])}
     exe_url, sha_url = assets.get(EXE_NAME), assets.get(EXE_NAME + ".sha256")
@@ -112,7 +195,8 @@ def download_verified(info, target_dir, fetch=_fetch):
     except UpdateError:
         raise
     except Exception as e:  # noqa: BLE001
-        raise UpdateError("Download fehlgeschlagen. Bitte später noch einmal versuchen.") from e
+        log.warning("Update-Download fehlgeschlagen: %r", e)
+        raise UpdateError("Download fehlgeschlagen: " + describe(e)) from e
     m = re.search(r"\b([0-9a-fA-F]{64})\b", sha_text)
     if not m:
         raise UpdateError("Die Prüfsummen-Datei im Release ist unlesbar.")
