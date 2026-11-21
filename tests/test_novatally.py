@@ -557,6 +557,36 @@ class ApiTest(unittest.TestCase):
         finally:
             self.ctx._library_cache = None
 
+    def test_update_pruefen_und_installieren(self):
+        from novatally import updater
+        calls = []
+        orig_check, orig_install = updater.check, updater.install
+        updater.check = lambda: {"mode": "exe", "current": "1.0.1", "latest": "9.9.9", "newer": True,
+                                 "notes": "- Neu", "url": "https://github.com/x", "installable": True,
+                                 "exe_url": "geheim-intern"}
+        updater.install = lambda info: ["neue.exe", "--updated"]
+        self.ctx.request_restart = calls.append
+        try:
+            self.ctx.update_info = None
+            self.assertEqual(self.req("/api/update/install", {})[0], 400)  # erst prüfen
+            status, data, _ = self.req("/api/update/check")
+            self.assertEqual(status, 200)
+            self.assertEqual(data["latest"], "9.9.9")
+            self.assertNotIn("exe_url", data)  # interne Details bleiben im Server
+            _, st, _ = self.req("/api/status")
+            self.assertEqual(st["update"], {"latest": "9.9.9"})
+            status, data, _ = self.req("/api/update/install", {})
+            self.assertEqual((status, data["restarting"]), (200, True))
+            time.sleep(1.5)
+            self.assertEqual(calls, [["neue.exe", "--updated"]])
+            # automatische Suche ein-/ausschalten
+            self.assertTrue(self.req("/api/settings", {"update_auto": True})[1]["update_auto"])
+            self.assertFalse(self.req("/api/settings", {"update_auto": False})[1]["update_auto"])
+        finally:
+            updater.check, updater.install = orig_check, orig_install
+            self.ctx.request_restart = None
+            self.ctx.update_info = None
+
     def test_kaputtes_json(self):
         r = urllib.request.Request(f"http://127.0.0.1:{self.port}/api/settings", data=b"{nope",
                                    headers={"X-NovaTally": "1", "Content-Type": "application/json"})

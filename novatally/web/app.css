@@ -100,6 +100,13 @@ h1, h2, h3 { margin: 0; font-weight: 650; letter-spacing: -.01em; }
 .nav a:hover { background: var(--card-2); color: var(--text); }
 .nav a.active { background: var(--card-2); color: var(--text); box-shadow: inset 3px 0 0 var(--accent); }
 .nav svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.sidebar-update {
+  margin-top: auto; padding: 10px 12px; border-radius: 10px; font-size: 13px; font-weight: 600;
+  background: color-mix(in srgb, var(--accent) 16%, var(--card-2)); color: var(--text);
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+}
+.sidebar-update[hidden] { display: none; }
+.sidebar-update:not([hidden]) + .sidebar-status { margin-top: 0; }
 .sidebar-status {
   margin-top: auto; display: flex; align-items: center; gap: 10px;
   padding: 12px; border-radius: 10px; background: var(--card-2);
@@ -340,6 +347,15 @@ h1, h2, h3 { margin: 0; font-weight: 650; letter-spacing: -.01em; }
 .lib-game .btn { flex: none; }
 .muted { color: var(--muted); }
 .help { color: var(--muted); font-size: 12.5px; margin: 0 0 10px; }
+
+.update-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.update-box { margin-top: 12px; padding: 12px 14px; border-radius: 10px; background: var(--card-2); border: 1px solid var(--border); }
+.update-box.new { border-color: color-mix(in srgb, var(--accent) 50%, transparent); }
+.update-box.error { border-color: var(--danger); color: var(--text); }
+.update-box .t { font-weight: 650; margin-bottom: 6px; }
+.update-notes { white-space: pre-wrap; color: var(--text-2); font-size: 12.5px; max-height: 220px; overflow: auto; margin-bottom: 12px; }
+.help code { font-family: Consolas, "Cascadia Mono", ui-monospace, monospace; font-size: 12px; }
+#update-card .set-row { margin-top: 10px; }
 
 /* ------------------------------------------------------- Tooltip / Modal */
 .tooltip {

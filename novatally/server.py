@@ -17,7 +17,7 @@ from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
-from . import APP_NAME, __version__, autostart, library, stats
+from . import APP_NAME, __version__, autostart, library, stats, updater
 from .config import IS_WINDOWS, resource_dir
 from .db import norm_path
 
@@ -59,6 +59,8 @@ class AppContext:
         self.tracker_note = tracker_note
         self.process_source = process_source
         self.on_change = None  # z. B. Tray-Symbol aktualisieren
+        self.request_restart = None  # von der App gesetzt: beenden und neue Version starten
+        self.update_info = None  # Ergebnis der letzten Update-Prüfung
         self._library_cache = None
 
     def library_entries(self):
@@ -213,6 +215,8 @@ class Handler(BaseHTTPRequestHandler):
                 "running": running,
                 "last": last,
                 "theme": db.get_setting("theme", "dark"),
+                "update": ({"latest": ctx.update_info["latest"]}
+                           if ctx.update_info and ctx.update_info.get("newer") else None),
             })
         if path == "/api/overview":
             rng = (query.get("range") or ["30"])[0]
@@ -237,7 +241,18 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(self._settings())
         if path == "/api/export.csv":
             return self._export()
+        if path == "/api/update/check":
+            try:
+                info = updater.check()
+            except updater.UpdateError as e:
+                raise ApiError(502, str(e))
+            ctx.update_info = info
+            return self._json(self._public_update(info))
         raise ApiError(404, "Unbekannter Endpunkt")
+
+    @staticmethod
+    def _public_update(info):
+        return {k: info.get(k) for k in ("mode", "current", "latest", "newer", "notes", "url", "installable")}
 
     def _processes(self):
         ctx = self.server.ctx
@@ -283,6 +298,9 @@ class Handler(BaseHTTPRequestHandler):
             "tracking": ctx.tracker is not None,
             "tracker_note": ctx.tracker_note,
             "libraries": library.summarize(entries, db.ignored_keys()),
+            "update_auto": bool(db.get_setting("update_auto", False)),
+            "update_mode": updater.mode(),
+            "releases_url": updater.RELEASES_URL,
             "library_total": len(entries),
             "ignored": [{"id": g["id"], "name": g["name"], "appid": g["appid"], "source": g["source"]}
                         for g in db.ignored_games()],
@@ -326,6 +344,19 @@ class Handler(BaseHTTPRequestHandler):
             if not db.delete_session(int(m.group(1))):
                 raise ApiError(404, "Sitzung nicht gefunden oder läuft noch")
             return self._json({"ok": True})
+        if path == "/api/update/install":
+            if ctx.demo:
+                raise ApiError(400, "Im Demo-Modus wird nicht aktualisiert.")
+            info = ctx.update_info
+            if not info or not info.get("newer") or not info.get("installable"):
+                raise ApiError(400, "Kein installierbares Update gefunden – bitte zuerst nach Updates suchen.")
+            try:
+                cmd = updater.install(info)
+            except updater.UpdateError as e:
+                raise ApiError(500, str(e))
+            if ctx.request_restart is not None:
+                threading.Timer(1.0, ctx.request_restart, args=(cmd,)).start()
+            return self._json({"ok": True, "restarting": ctx.request_restart is not None})
         if path == "/api/library/ignore":
             # Ein erkanntes Spiel ausschließen – auch wenn es noch nie gespielt wurde
             key = str(body.get("key") or "")
@@ -374,6 +405,8 @@ class Handler(BaseHTTPRequestHandler):
                     raise ApiError(400, "Ordner nicht gefunden: " + ", ".join(missing))
                 db.set_setting("extra_folders", clean)
                 ctx.library_changed()
+            if "update_auto" in body:
+                db.set_setting("update_auto", bool(body["update_auto"]))
             if "autostart" in body:
                 if not autostart.supported() or ctx.demo:
                     raise ApiError(400, "Autostart ist nur unter Windows (und nicht im Demo-Modus) möglich")

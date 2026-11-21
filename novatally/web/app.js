@@ -364,6 +364,9 @@ async function refreshStatus() {
     el.className = 'sidebar-status ' + (s.demo ? 'demo' : !s.tracking ? 'off' : s.paused ? 'paused' : 'on');
     $('.label', el).textContent = s.demo ? 'Demo-Modus' : !s.tracking ? 'Erkennung aus' : s.paused ? 'Tracking pausiert' : 'Tracking aktiv';
     el.title = s.tracker_note || '';
+    const upd = $('#sidebar-update');
+    upd.hidden = !s.update;
+    if (s.update) upd.textContent = /^\d/.test(s.update.latest) ? `Update auf ${s.update.latest} verfügbar` : `Update verfügbar: ${s.update.latest}`;
     applyTheme(s.theme);
     const nowCard = $('#now-card');
     if (nowCard) renderNowCard(nowCard);
@@ -703,13 +706,25 @@ async function renderSettings() {
         </div>
       </div>
       <div class="col">
+        <div class="card" id="update-card"><div class="card-head"><h2>Updates</h2><div class="meta">installiert: ${esc(st.version)}</div></div>
+          <p class="help">${{
+            exe: 'Lädt die neue NovaTally.exe aus den GitHub-Releases, prüft die Prüfsumme und startet neu.',
+            git: 'Holt den neuen Stand per <code>git pull</code> aus GitHub und startet neu.',
+            manual: 'Bei dieser Installation wird nur geprüft – die neue Version lädst du selbst unter Releases herunter.',
+          }[st.update_mode] || ''}</p>
+          <div class="update-actions"><button class="btn" id="update-check" ${st.demo ? 'disabled' : ''}>Nach Updates suchen</button>
+            <a class="btn ghost" href="${esc(st.releases_url)}" target="_blank" rel="noopener">Alle Versionen</a></div>
+          <div id="update-result"></div>
+          <div class="set-row"><div><div class="t">Beim Start automatisch suchen</div><div class="d">Fragt dafür bei github.com nach. Standardmäßig aus – sonst bleibt alles lokal.</div></div>
+            <label class="switch"><input type="checkbox" id="set-update-auto" ${st.update_auto ? 'checked' : ''} ${st.demo ? 'disabled' : ''}><span></span></label></div>
+        </div>
         <div class="card"><div class="card-head"><h2>Ausgeschlossene Spiele</h2></div>
           <div class="list">${st.ignored.length ? st.ignored.map(g => `<div class="list-item">${coverHtml(g, 'mini')}<div class="grow"><div class="t">${esc(g.name)}</div></div><button class="btn small" data-unhide="${g.id}">Wieder erfassen</button></div>`).join('') : '<div class="muted">Keine ausgeschlossenen Spiele. Programme, die fälschlich als Spiel zählen (z. B. eine Wallpaper-App), schließt du auf ihrer Spielseite oder unten bei den erkannten Bibliotheken aus.</div>'}</div>
         </div>
         <div class="card"><div class="card-head"><h2>Daten</h2></div>
           <div class="set-row"><div><div class="t">CSV-Export</div><div class="d">Alle Sitzungen als Tabelle (Excel-kompatibel).</div></div><button class="btn" id="export">Exportieren</button></div>
           <div class="set-row"><div style="min-width:0"><div class="t">Datenordner</div><div class="path">${esc(st.data_dir)}</div></div></div>
-          <div class="set-row"><div><div class="t">Datenschutz</div><div class="d">Alles bleibt lokal auf diesem PC. Nur Steam-Coverbilder werden aus dem Internet geladen.</div></div></div>
+          <div class="set-row"><div><div class="t">Datenschutz</div><div class="d">Alles bleibt lokal auf diesem PC. Aus dem Internet kommen nur Steam-Coverbilder und – wenn du danach suchst – Updates von GitHub.</div></div></div>
         </div>
         <div class="card"><div class="card-head"><h2>Erkannte Bibliotheken</h2><div class="meta">${st.library_total} installierte Spiele</div></div>
           ${st.libraries.length ? st.libraries.map(l => `<details class="lib"><summary><span>${esc(l.label)}</span><span class="count">${l.count}</span></summary><div class="lib-games">${l.games.map(x => `<div class="lib-game${x.ignored ? ' off' : ''}"><span>${esc(x.name)}</span><button class="btn small ghost" data-libkey="${esc(x.key)}" data-ignored="${x.ignored ? 1 : 0}">${x.ignored ? 'Wieder erfassen' : 'Ausschließen'}</button></div>`).join('')}</div></details>`).join('')
@@ -721,6 +736,8 @@ async function renderSettings() {
 
   const post = async (body, msg) => { const r = await act(() => api('settings', body), msg); refreshStatus(); return r; };
   $('#set-autostart').addEventListener('change', e => post({ autostart: e.target.checked }, e.target.checked ? 'Autostart eingeschaltet' : 'Autostart ausgeschaltet').then(r => { if (!r) route(); }));
+  $('#set-update-auto').addEventListener('change', e => post({ update_auto: e.target.checked }, e.target.checked ? 'Sucht beim Start nach Updates' : 'Keine automatische Suche'));
+  $('#update-check').addEventListener('click', () => checkForUpdate());
   $('#set-paused').addEventListener('change', e => post({ paused: e.target.checked }, e.target.checked ? 'Tracking pausiert' : 'Tracking läuft wieder'));
   $$('#set-theme button').forEach(b => b.addEventListener('click', async () => {
     $$('#set-theme button').forEach(x => x.classList.toggle('active', x === b));
@@ -781,6 +798,66 @@ async function renderSettings() {
       toast('CSV-Datei wird heruntergeladen');
     } catch (e) { toast(e.message, true); }
   });
+}
+
+/* ================================================================ Updates */
+async function checkForUpdate() {
+  const box = $('#update-result'), btn = $('#update-check');
+  if (!box) return;
+  btn.disabled = true;
+  box.innerHTML = '<div class="update-box muted">Suche nach Updates …</div>';
+  try {
+    const u = await api('update/check');
+    if (!u.newer) {
+      box.innerHTML = `<div class="update-box">✓ Du hast die neueste Version (${esc(u.current)}).</div>`;
+    } else {
+      box.innerHTML = `<div class="update-box new">
+        <div class="t">${u.mode === 'git' ? 'Neuer Stand' : 'Neue Version'}: ${esc(u.latest)}</div>
+        ${u.notes ? `<div class="update-notes">${esc(u.notes)}</div>` : ''}
+        <div class="update-actions">${u.installable
+          ? '<button class="btn primary" id="update-install">Jetzt aktualisieren</button>'
+          : `<a class="btn primary" href="${esc(u.url)}" target="_blank" rel="noopener">Zum Download</a>`}</div></div>`;
+      const inst = $('#update-install');
+      if (inst) inst.addEventListener('click', () => installUpdate(u));
+    }
+    refreshStatus();
+  } catch (e) {
+    box.innerHTML = `<div class="update-box error">${esc(e.message)}</div>`;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function installUpdate(u) {
+  const ok = await openModal({
+    title: u.mode === 'git' ? 'Neuen Stand holen?' : `Auf ${u.latest} aktualisieren?`,
+    text: u.mode === 'git'
+      ? 'NovaTally holt den neuen Stand per git pull und startet danach neu. Laufende Sitzungen werden vorher gespeichert.'
+      : 'NovaTally lädt die neue Version, prüft die Prüfsumme und startet danach neu. Laufende Sitzungen werden vorher gespeichert.',
+    okLabel: 'Aktualisieren',
+  });
+  if (!ok) return;
+  const box = $('#update-result');
+  box.innerHTML = '<div class="update-box muted">Lade und installiere … das dauert einen Moment.</div>';
+  try {
+    const r = await api('update/install', {});
+    if (!r.restarting) { box.innerHTML = '<div class="update-box">Installiert. Bitte NovaTally neu starten.</div>'; return; }
+    box.innerHTML = '<div class="update-box muted">NovaTally startet neu …</div>';
+    // warten, bis die neue Version antwortet, dann die Seite neu laden
+    const old = state.status && state.status.version;
+    let wentDown = false;
+    for (let i = 0; i < 60; i++) {
+      await new Promise(res => setTimeout(res, 1000));
+      try {
+        const p = await api('ping');
+        // neu laden, sobald die neue Instanz antwortet (neue Version oder nach kurzem Ausfall)
+        if (p.version !== old || wentDown || i > 25) { location.reload(); return; }
+      } catch (e) { wentDown = true; /* alte Instanz ist weg, neue startet gerade */ }
+    }
+    box.innerHTML = '<div class="update-box error">Die neue Version antwortet nicht. Bitte NovaTally manuell starten.</div>';
+  } catch (e) {
+    box.innerHTML = `<div class="update-box error">${esc(e.message)}</div>`;
+  }
 }
 
 /* ================================================================ Start */

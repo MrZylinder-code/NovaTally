@@ -11,11 +11,12 @@ import socket
 import subprocess
 import sys
 import threading
+import time
 import urllib.request
 import webbrowser
 from pathlib import Path
 
-from . import APP_NAME, __version__, autostart, demo, library
+from . import APP_NAME, __version__, autostart, demo, library, updater
 from .config import IS_WINDOWS, PORT, data_dir, legacy_data_dir, migrate_legacy_db
 from .db import Database
 from .server import AppContext, start_server
@@ -29,6 +30,7 @@ def parse_args(argv=None):
     p.add_argument("--headless", "--no-tray", dest="headless", action="store_true",
                    help="ohne Tray-Symbol und Fenster (nur Server und Tracker)")
     p.add_argument("--autostart", action="store_true", help="beim Windows-Start: kein Fenster öffnen")
+    p.add_argument("--updated", action="store_true", help=argparse.SUPPRESS)  # Neustart nach einem Update
     p.add_argument("--port", type=int, default=PORT, help=argparse.SUPPRESS)
     args, _unknown = p.parse_known_args(argv)
     return args
@@ -124,6 +126,15 @@ def main(argv=None):
             open_window(args.port)
         return 0
 
+    if args.updated:
+        log.info("Neustart nach Update auf Version %s", __version__)
+        for _ in range(30):  # die alte Instanz gibt den Port gerade frei
+            if not port_in_use(args.port):
+                break
+            time.sleep(0.5)
+        if getattr(sys, "frozen", False):
+            updater.cleanup_old()
+
     # ---- Einzelinstanz: zuerst prüfen, bevor die Datenbank verändert wird
     if ping(args.port, timeout=1.0):
         return already_running()
@@ -203,9 +214,23 @@ def main(argv=None):
         if tracker is not None:
             tracker.stop()
         server.shutdown()
+        server.server_close()  # Port sofort freigeben (wichtig für den Neustart nach einem Update)
 
-    if not args.headless and (not args.autostart or first_run):
+    if not args.headless and not args.updated and (not args.autostart or first_run):
         open_window(args.port)
+
+    # ---- Optional: beim Start nach Updates suchen (standardmäßig aus)
+    if not args.demo and db.get_setting("update_auto", False):
+        def auto_check():
+            if stop.wait(20):
+                return
+            try:
+                ctx.update_info = updater.check()
+                if ctx.update_info.get("newer"):
+                    log.info("Update verfügbar: %s", ctx.update_info.get("latest"))
+            except updater.UpdateError as e:
+                log.info("Update-Prüfung: %s", e)
+        threading.Thread(target=auto_check, name="UpdateCheck", daemon=True).start()
 
     tray = None
     if not args.headless:
@@ -216,6 +241,19 @@ def main(argv=None):
             ctx.on_change = tray.refresh
         except ImportError:
             log.warning("pystray/Pillow fehlen – kein Tray-Symbol")
+
+    restart_cmd = []
+
+    def request_restart(cmd):
+        """Nach einem Update: sauber beenden, danach startet die neue Version."""
+        passthrough = (["--headless"] if args.headless else []) + (["--port", str(args.port)] if args.port != PORT else [])
+        restart_cmd[:] = list(cmd) + passthrough
+        if tray is not None:
+            tray.icon.stop()
+        else:
+            stop.set()
+
+    ctx.request_restart = request_restart
 
     if tray is not None:
         tray.run()  # blockiert im Hauptthread bis „Beenden“
@@ -233,6 +271,10 @@ def main(argv=None):
             pass
         shutdown()
     db.close()
+    if restart_cmd:
+        log.info("Starte neue Version: %s", restart_cmd)
+        flags = getattr(subprocess, "DETACHED_PROCESS", 0) | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+        subprocess.Popen(restart_cmd, creationflags=flags, close_fds=True)
     return 0
 
 
