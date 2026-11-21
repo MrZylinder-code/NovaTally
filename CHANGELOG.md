@@ -13,6 +13,11 @@ Abschnitt (`## <Version>`) als Beschreibung.
 - Launcher, Anti-Cheat-Dienste (z. B. Riot Vanguard, BattlEye) und Werkzeuge werden dabei sicher ausgeschlossen,
   damit nichts dauerhaft als Spielzeit zählt.
 - Bereits manuell hinzugefügte Spiele bleiben unverändert und haben weiter Vorrang.
+- **Programme ausschließen**: „Ausblenden“ heißt jetzt „Ausschließen“. Neu: In *Einstellungen → Erkannte
+  Bibliotheken* hat jedes erkannte Spiel einen Button *Ausschließen* – auch bevor es je gezählt wurde.
+- **Keine Spiele**: Bekannte Steam-Programme wie **Wallpaper Engine**, SteamVR, OBS Studio, Lossless Scaling,
+  Soundpad oder Blender werden nicht mehr als Spiel erkannt. Wurden sie bereits erfasst, schließt NovaTally sie
+  beim ersten Start einmalig aus (unter *Ausgeschlossene Spiele* rückgängig zu machen).
 
 ## 1.0.0
 

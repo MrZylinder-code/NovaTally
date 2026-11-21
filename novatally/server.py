@@ -282,7 +282,7 @@ class Handler(BaseHTTPRequestHandler):
             "demo": ctx.demo,
             "tracking": ctx.tracker is not None,
             "tracker_note": ctx.tracker_note,
-            "libraries": library.summarize(entries),
+            "libraries": library.summarize(entries, db.ignored_keys()),
             "library_total": len(entries),
             "ignored": [{"id": g["id"], "name": g["name"], "appid": g["appid"], "source": g["source"]}
                         for g in db.ignored_games()],
@@ -292,7 +292,7 @@ class Handler(BaseHTTPRequestHandler):
         db = self.server.ctx.db
         buf = io.StringIO()
         w = csv.writer(buf, delimiter=";", lineterminator="\r\n")
-        w.writerow(["Spiel", "Quelle", "Start", "Ende", "Dauer (Minuten)", "Ausgeblendet"])
+        w.writerow(["Spiel", "Quelle", "Start", "Ende", "Dauer (Minuten)", "Ausgeschlossen"])
         for s in db.all_sessions(include_ignored=True):
             fmt = lambda t: datetime.fromtimestamp(t).strftime("%Y-%m-%d %H:%M:%S")  # noqa: E731
             w.writerow([s["name"], library.SOURCE_LABELS.get(s["source"], s["source"]), fmt(s["start"]),
@@ -326,6 +326,20 @@ class Handler(BaseHTTPRequestHandler):
             if not db.delete_session(int(m.group(1))):
                 raise ApiError(404, "Sitzung nicht gefunden oder läuft noch")
             return self._json({"ok": True})
+        if path == "/api/library/ignore":
+            # Ein erkanntes Spiel ausschließen – auch wenn es noch nie gespielt wurde
+            key = str(body.get("key") or "")
+            ignored = bool(body.get("ignored", True))
+            entry = next((e for e in ctx.library_entries() if e.key == key), None)
+            game = db.game_by_key(key)
+            if game is None and entry is None:
+                raise ApiError(404, "Spiel nicht gefunden")
+            if game is None:
+                game = db.get_or_create_game(entry.key, entry.name, entry.source, entry.appid, entry.folder)
+            db.set_ignored(game["id"], ignored)
+            if ctx.tracker is not None:
+                ctx.tracker.tick()
+            return self._json({"ok": True, "id": game["id"]})
         if path == "/api/games/add":
             exe = str(body.get("exe") or "").strip()
             name = str(body.get("name") or "").strip()

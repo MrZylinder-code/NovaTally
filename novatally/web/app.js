@@ -578,12 +578,12 @@ async function renderGame(id) {
     <div><a class="back" href="#/spiele">← Alle Spiele</a></div>
     <div class="card detail-hero">${bgHtml(g)}<div class="detail-inner">${coverHtml(g)}
       <div class="detail-info">
-        <div><span class="badge">${esc(SOURCE_LABELS[g.source] || g.source || 'Unbekannt')}</span>${g.ignored ? ' <span class="badge">ausgeblendet</span>' : ''}</div>
+        <div><span class="badge">${esc(SOURCE_LABELS[g.source] || g.source || 'Unbekannt')}</span>${g.ignored ? ' <span class="badge">ausgeschlossen</span>' : ''}</div>
         <h1>${esc(g.name)}</h1>
         <div class="muted">${esc(fmtDur(g.seconds))} gespielt · zuletzt ${esc(relDay(g.last))}</div>
         <div class="detail-actions">
           <button class="btn small" id="btn-rename">Umbenennen</button>
-          <button class="btn small" id="btn-ignore">${g.ignored ? 'Wieder einblenden' : 'Ausblenden'}</button>
+          <button class="btn small" id="btn-ignore">${g.ignored ? 'Wieder erfassen' : 'Ausschließen'}</button>
         </div>
       </div></div></div>
     <div class="stat-grid">
@@ -619,10 +619,10 @@ async function renderGame(id) {
   });
   $('#btn-ignore').addEventListener('click', async () => {
     if (!g.ignored) {
-      const ok = await openModal({ title: 'Spiel ausblenden?', text: `„${g.name}“ wird nicht mehr erfasst und aus allen Statistiken ausgeblendet. Unter Einstellungen kannst du es wieder einblenden.`, okLabel: 'Ausblenden', danger: true });
+      const ok = await openModal({ title: 'Spiel ausschließen?', text: `„${g.name}“ wird nicht mehr erfasst und verschwindet aus allen Statistiken – auch rückwirkend. Unter Einstellungen kannst du das jederzeit rückgängig machen.`, okLabel: 'Ausschließen', danger: true });
       if (!ok) return;
     }
-    await act(() => api(`game/${g.id}/ignore`, { ignored: !g.ignored }), g.ignored ? 'Wieder eingeblendet' : 'Ausgeblendet');
+    await act(() => api(`game/${g.id}/ignore`, { ignored: !g.ignored }), g.ignored ? 'Wird wieder erfasst' : 'Ausgeschlossen');
     if (g.ignored) route(); else location.hash = '#/spiele';
   });
   wireDeletes(main);
@@ -703,8 +703,8 @@ async function renderSettings() {
         </div>
       </div>
       <div class="col">
-        <div class="card"><div class="card-head"><h2>Ausgeblendete Spiele</h2></div>
-          <div class="list">${st.ignored.length ? st.ignored.map(g => `<div class="list-item">${coverHtml(g, 'mini')}<div class="grow"><div class="t">${esc(g.name)}</div></div><button class="btn small" data-unhide="${g.id}">Einblenden</button></div>`).join('') : '<div class="muted">Keine ausgeblendeten Spiele.</div>'}</div>
+        <div class="card"><div class="card-head"><h2>Ausgeschlossene Spiele</h2></div>
+          <div class="list">${st.ignored.length ? st.ignored.map(g => `<div class="list-item">${coverHtml(g, 'mini')}<div class="grow"><div class="t">${esc(g.name)}</div></div><button class="btn small" data-unhide="${g.id}">Wieder erfassen</button></div>`).join('') : '<div class="muted">Keine ausgeschlossenen Spiele. Programme, die fälschlich als Spiel zählen (z. B. eine Wallpaper-App), schließt du auf ihrer Spielseite oder unten bei den erkannten Bibliotheken aus.</div>'}</div>
         </div>
         <div class="card"><div class="card-head"><h2>Daten</h2></div>
           <div class="set-row"><div><div class="t">CSV-Export</div><div class="d">Alle Sitzungen als Tabelle (Excel-kompatibel).</div></div><button class="btn" id="export">Exportieren</button></div>
@@ -712,7 +712,7 @@ async function renderSettings() {
           <div class="set-row"><div><div class="t">Datenschutz</div><div class="d">Alles bleibt lokal auf diesem PC. Nur Steam-Coverbilder werden aus dem Internet geladen.</div></div></div>
         </div>
         <div class="card"><div class="card-head"><h2>Erkannte Bibliotheken</h2><div class="meta">${st.library_total} installierte Spiele</div></div>
-          ${st.libraries.length ? st.libraries.map(l => `<details class="lib"><summary><span>${esc(l.label)}</span><span class="count">${l.count}</span></summary><div class="names">${l.games.map(esc).join(' · ')}</div></details>`).join('')
+          ${st.libraries.length ? st.libraries.map(l => `<details class="lib"><summary><span>${esc(l.label)}</span><span class="count">${l.count}</span></summary><div class="lib-games">${l.games.map(x => `<div class="lib-game${x.ignored ? ' off' : ''}"><span>${esc(x.name)}</span><button class="btn small ghost" data-libkey="${esc(x.key)}" data-ignored="${x.ignored ? 1 : 0}">${x.ignored ? 'Wieder erfassen' : 'Ausschließen'}</button></div>`).join('')}</div></details>`).join('')
             : '<div class="muted">Keine Spielebibliotheken gefunden.</div>'}
         </div>
       </div>
@@ -727,8 +727,18 @@ async function renderSettings() {
     await post({ theme: b.dataset.v });
   }));
   $$('[data-unhide]').forEach(b => b.addEventListener('click', async () => {
-    await act(() => api(`game/${b.dataset.unhide}/ignore`, { ignored: false }), 'Wieder eingeblendet');
+    await act(() => api(`game/${b.dataset.unhide}/ignore`, { ignored: false }), 'Wird wieder erfasst');
     route();
+  }));
+  $$('[data-libkey]').forEach(b => b.addEventListener('click', async ev => {
+    ev.preventDefault();
+    const ignored = b.dataset.ignored !== '1';
+    const r = await act(() => api('library/ignore', { key: b.dataset.libkey, ignored }), ignored ? 'Ausgeschlossen' : 'Wird wieder erfasst');
+    if (!r) return;
+    // nur diese Zeile umschalten, damit die aufgeklappte Liste offen bleibt
+    b.dataset.ignored = ignored ? '1' : '0';
+    b.textContent = ignored ? 'Wieder erfassen' : 'Ausschließen';
+    b.parentElement.classList.toggle('off', ignored);
   }));
   const setFolders = async folders => { if (await post({ extra_folders: folders }, 'Ordner gespeichert')) route(); };
   $$('[data-rm]').forEach(b => b.addEventListener('click', () => setFolders(st.extra_folders.filter((_, i) => i !== +b.dataset.rm))));

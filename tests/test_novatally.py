@@ -282,6 +282,18 @@ class StatsTest(unittest.TestCase):
         self.assertIn("Andere", [s["name"] for s in oall["history"]["series"]])
         self.assertEqual(len(oall["history"]["series"]), 8)  # 7 Farben + Andere
 
+    def test_bekannte_nicht_spiele_einmalig_ausschliessen(self):
+        we = self.db.get_or_create_game("steam:431960", "Wallpaper Engine", "steam", "431960")
+        self.db.insert_sessions([(we["id"], 1000, 90000)])
+        keys = [f"steam:{a}" for a in library.STEAM_EXCLUDED_APPIDS]
+        self.assertEqual(self.db.auto_exclude(keys), ["Wallpaper Engine"])
+        self.assertTrue(self.db.game(we["id"])["ignored"])
+        self.assertEqual(self.db.all_sessions(), [])  # zählt nicht mehr in der Statistik
+        # Nutzer schließt es bewusst wieder ein -> darf beim nächsten Start nicht erneut passieren
+        self.db.set_ignored(we["id"], False)
+        self.assertEqual(self.db.auto_exclude(keys), [])
+        self.assertFalse(self.db.game(we["id"])["ignored"])
+
     def test_offene_sitzung_zaehlt_live(self):
         g = self.db.get_or_create_game("steam:1", "Spiel", "steam")
         sid = self.db.start_session(g["id"], 1000)
@@ -323,6 +335,7 @@ class LibraryTest(unittest.TestCase):
             acf(steam, "228980", "Steamworks Common Redistributables", "Steamworks Shared")
             acf(lib2, "1145350", "Hades II", "Hades II")
             acf(lib2, "1493710", "Proton Experimental", "Proton - Experimental")
+            acf(lib2, "431960", "Wallpaper Engine", "wallpaper_engine")
             games = library.steam_games(str(steam))
             self.assertEqual(sorted(g.name for g in games), ["Counter-Strike 2", "Hades II"])
             hades = [g for g in games if g.appid == "1145350"][0]
@@ -525,6 +538,24 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(self.req("/api/settings", {"theme": "pink"})[0], 400)
         self.assertEqual(self.req("/api/settings", {"extra_folders": ["/gibt/es/nicht"]})[0], 400)
         self.req("/api/settings", {"paused": False, "theme": "dark", "extra_folders": []})
+
+    def test_bibliothek_ausschliessen(self):
+        entry = LibraryEntry(SEP + os.path.join("x", "wallpaper_engine"), "folder:wallpaper", "Wallpaper App", "custom", None)
+        self.ctx._library_cache = [entry]
+        try:
+            _, st, _ = self.req("/api/settings")
+            self.assertEqual(st["libraries"][0]["games"], [{"name": "Wallpaper App", "key": "folder:wallpaper", "ignored": False}])
+            status, data, _ = self.req("/api/library/ignore", {"key": "folder:wallpaper", "ignored": True})
+            self.assertEqual(status, 200)
+            self.assertTrue(self.db.game(data["id"])["ignored"])
+            _, st, _ = self.req("/api/settings")
+            self.assertTrue(st["libraries"][0]["games"][0]["ignored"])
+            self.assertIn("Wallpaper App", [g["name"] for g in st["ignored"]])
+            self.assertEqual(self.req("/api/library/ignore", {"key": "folder:wallpaper", "ignored": False})[0], 200)
+            self.assertFalse(self.db.game(data["id"])["ignored"])
+            self.assertEqual(self.req("/api/library/ignore", {"key": "gibt:esnicht"})[0], 404)
+        finally:
+            self.ctx._library_cache = None
 
     def test_kaputtes_json(self):
         r = urllib.request.Request(f"http://127.0.0.1:{self.port}/api/settings", data=b"{nope",

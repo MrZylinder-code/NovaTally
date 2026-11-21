@@ -43,7 +43,7 @@ Beim ersten Start öffnet sich das Fenster, und NovaTally trägt sich in den Win
 | **Übersicht** | „Jetzt im Spiel“ mit Live-Timer, Heute/Woche/Monat/Gesamt, Serien, Verlauf (7 T / 30 T / 90 T / 1 J / Gesamt), Top-Spiele, „Wann spielst du?“, Aktivitäts-Kalender |
 | **Spiele** | Kacheln mit Cover, Suche und Sortierung. Ein Klick öffnet die Detailseite mit Kennzahlen, Monatsverlauf und allen Sitzungen (einzeln löschbar). Dort kannst du das Spiel auch umbenennen oder ausblenden |
 | **Verlauf** | Alle Sitzungen nach Tagen mit Tagessumme |
-| **Einstellungen** | Autostart, Pause, Design (System/Dunkel/Hell), Spiel manuell hinzufügen, eigene Spieleordner, ausgeblendete Spiele, CSV-Export, Datenordner, erkannte Bibliotheken |
+| **Einstellungen** | Autostart, Pause, Design (System/Dunkel/Hell), Spiel manuell hinzufügen, eigene Spieleordner, ausgeschlossene Spiele, CSV-Export, Datenordner, erkannte Bibliotheken |
 
 - **Fenster schließen** schließt nur die Ansicht. Das Tracking läuft im Tray weiter.
   Doppelklick auf das Tray-Symbol (oder ein erneuter Start der App) öffnet das Fenster wieder.
@@ -58,8 +58,11 @@ beim Spiel auf *Hinzufügen*. Liegen viele Spiele in einem eigenen Ordner (z. B.
 unter *Eigene Spieleordner* hinzu: Jeder Unterordner zählt dann als ein Spiel.
 
 **Ein Programm wird fälschlich als Spiel gezählt.**
-Auf der Detailseite des Spiels *Ausblenden* wählen. Es wird dann nicht mehr erfasst und taucht in keiner Statistik
-mehr auf. Unter *Einstellungen → Ausgeblendete Spiele* kannst du es wieder einblenden.
+Auf der Detailseite des Spiels *Ausschließen* wählen. Es wird dann nicht mehr erfasst und taucht in keiner Statistik
+mehr auf, auch rückwirkend. Unter *Einstellungen → Erkannte Bibliotheken* lassen sich Programme auch ausschließen,
+bevor sie je gezählt wurden. Rückgängig geht es unter *Einstellungen → Ausgeschlossene Spiele*.
+Bekannte Steam-Programme, die keine Spiele sind (Wallpaper Engine, SteamVR, OBS, Lossless Scaling …), erkennt
+NovaTally von sich aus nicht als Spiel.
 
 **Werden Launcher wie Steam oder der Epic Games Launcher mitgezählt?**
 Nein. Launcher, Installer, Updater, Crash-Reporter und Redistributables werden ignoriert.

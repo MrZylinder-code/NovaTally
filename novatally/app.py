@@ -15,7 +15,7 @@ import urllib.request
 import webbrowser
 from pathlib import Path
 
-from . import APP_NAME, __version__, autostart, demo
+from . import APP_NAME, __version__, autostart, demo, library
 from .config import IS_WINDOWS, PORT, data_dir, legacy_data_dir, migrate_legacy_db
 from .db import Database
 from .server import AppContext, start_server
@@ -156,6 +156,9 @@ def main(argv=None):
         demo.fill(db)
         demo.start_running(db)
     else:
+        excluded = db.auto_exclude(f"steam:{appid}" for appid in library.STEAM_EXCLUDED_APPIDS)
+        if excluded:
+            log.info("Keine Spiele, automatisch ausgeschlossen: %s", ", ".join(excluded))
         closed = db.close_stale_sessions()
         if closed:
             log.info("%d offene Sitzung(en) vom letzten Lauf beim letzten Heartbeat beendet", closed)

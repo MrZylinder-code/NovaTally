@@ -19,7 +19,22 @@ log = logging.getLogger(__name__)
 
 LibraryEntry = namedtuple("LibraryEntry", "folder key name source appid")
 
-STEAM_EXCLUDED_APPIDS = {"228980"}  # Steamworks Common Redistributables
+# Steam-Programme, die keine Spiele sind. Viele davon laufen dauerhaft oder parallel zu Spielen
+# (Wallpaper Engine, Lossless Scaling, OBS …) und würden sonst als Spielzeit zählen.
+STEAM_NON_GAMES = {
+    "228980": "Steamworks Common Redistributables",
+    "431960": "Wallpaper Engine",
+    "250820": "SteamVR",
+    "993090": "Lossless Scaling",
+    "1905180": "OBS Studio",
+    "629520": "Soundpad",
+    "365670": "Blender",
+    "1325860": "VTube Studio",
+    "323910": "FaceRig",
+    "1261970": "Desktop Mate",
+    "480": "Spacewar",
+}
+STEAM_EXCLUDED_APPIDS = set(STEAM_NON_GAMES)
 STEAM_EXCLUDED_WORDS = ("redistributable", "proton", "steam linux runtime", "sdk", "dedicated server")
 
 # Unterordner in Spieleordnern, die keine Spiele sind (Launcher, Hilfsprogramme)
@@ -417,13 +432,14 @@ def scan(extra_folders=()):
     return out
 
 
-def summarize(entries):
-    """Für die Einstellungen: Anzahl und Namen je Quelle."""
+def summarize(entries, ignored_keys=()):
+    """Für die Einstellungen: erkannte Spiele je Quelle, mit Ausschluss-Status."""
+    ignored_keys = set(ignored_keys)
     groups = {}
     for e in entries:
         g = groups.setdefault(e.source, {"source": e.source, "label": SOURCE_LABELS.get(e.source, e.source), "games": []})
-        g["games"].append(e.name)
+        g["games"].append({"name": e.name, "key": e.key, "ignored": e.key in ignored_keys})
     for g in groups.values():
-        g["games"].sort(key=str.lower)
+        g["games"].sort(key=lambda x: x["name"].lower())
         g["count"] = len(g["games"])
     return sorted(groups.values(), key=lambda g: -g["count"])
