@@ -710,6 +710,7 @@ async function renderSettings() {
           <p class="help">${{
             exe: 'Lädt die neue NovaTally.exe aus den GitHub-Releases, prüft die Prüfsumme und startet neu.',
             git: 'Holt den neuen Stand per <code>git pull</code> aus GitHub und startet neu.',
+            setup: 'NovaTally ist in einem geschützten Ordner installiert. Das Update lädt den neuen Installer, prüft ihn und startet ihn.',
             manual: 'Bei dieser Installation wird nur geprüft – die neue Version lädst du selbst unter Releases herunter.',
           }[st.update_mode] || ''}</p>
           <div class="update-actions"><button class="btn" id="update-check" ${st.demo ? 'disabled' : ''}>Nach Updates suchen</button>
@@ -841,6 +842,10 @@ async function installUpdate(u) {
   box.innerHTML = '<div class="update-box muted">Lade und installiere … das dauert einen Moment.</div>';
   try {
     const r = await api('update/install', {});
+    if (r.installer) {
+      box.innerHTML = '<div class="update-box">Der Installer wurde gestartet – folge seinen Schritten. NovaTally beendet sich jetzt und startet danach wieder.</div>';
+      return;
+    }
     if (!r.restarting) { box.innerHTML = '<div class="update-box">Installiert. Bitte NovaTally neu starten.</div>'; return; }
     box.innerHTML = '<div class="update-box muted">NovaTally startet neu …</div>';
     // warten, bis die neue Version antwortet, dann die Seite neu laden

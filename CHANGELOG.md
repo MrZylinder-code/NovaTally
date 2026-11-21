@@ -3,6 +3,19 @@
 Alle nennenswerten Änderungen an NovaTally. Für jedes Release übernimmt der Release-Workflow den passenden
 Abschnitt (`## <Version>`) als Beschreibung.
 
+## 1.3.0
+
+- **Installer**: Neu gibt es `NovaTally-Setup.exe`. Der Assistent prüft die Voraussetzungen (Windows 10/11,
+  64 Bit, WebView2), lässt dich den Ordner wählen (Standard ohne Adminrechte unter
+  `%LOCALAPPDATA%\Programs\NovaTally`), legt Startmenü-Eintrag, auf Wunsch Desktop-Verknüpfung und Autostart an
+  und installiert fehlendes WebView2 bei Microsoft nach.
+- **Sauber deinstallieren** über *Windows-Einstellungen → Apps*: Autostart und Verknüpfungen werden entfernt, auf
+  Wunsch auch die Spieldaten (Standard: behalten).
+- Installer und Deinstaller beenden ein laufendes NovaTally vorher sauber – die laufende Sitzung wird gespeichert.
+- **Update-Button** für geschützte Ordner (z. B. `C:\Program Files`): lädt dort den neuen Installer, prüft
+  ihn und startet ihn.
+- Die portable `NovaTally.exe` gibt es weiterhin.
+
 ## 1.2.0
 
 - **Eigenes Fenster**: NovaTally öffnet sich jetzt in einem eigenen Programmfenster (Microsoft WebView2, in

@@ -602,6 +602,34 @@ class ApiTest(unittest.TestCase):
             self.ctx.request_restart = None
             self.ctx.update_info = None
 
+    def test_sauber_beenden_per_api(self):
+        calls = []
+        self.ctx.request_quit = lambda: calls.append("quit")
+        try:
+            self.assertEqual(self.req("/api/quit", {})[0], 200)
+            time.sleep(0.6)
+            self.assertEqual(calls, ["quit"])
+        finally:
+            self.ctx.request_quit = None
+        self.assertEqual(self.req("/api/quit", {})[0], 409)
+
+    def test_update_per_installer(self):
+        from novatally import updater
+        calls = []
+        orig_install = updater.install
+        updater.install = lambda info: None  # Installer übernimmt
+        self.ctx.update_info = {"newer": True, "installable": True, "latest": "9.9.9"}
+        self.ctx.request_quit = lambda: calls.append("quit")
+        try:
+            status, data, _ = self.req("/api/update/install", {})
+            self.assertEqual((status, data["installer"], data["restarting"]), (200, True, False))
+            time.sleep(1.8)
+            self.assertEqual(calls, ["quit"])
+        finally:
+            updater.install = orig_install
+            self.ctx.update_info = None
+            self.ctx.request_quit = None
+
     def test_kaputtes_json(self):
         r = urllib.request.Request(f"http://127.0.0.1:{self.port}/api/settings", data=b"{nope",
                                    headers={"X-NovaTally": "1", "Content-Type": "application/json"})

@@ -47,6 +47,19 @@ if not exist "novatally\web\icon.ico" "%VPY%" tools\make_icon.py || goto :fehler
 echo [4/4] NovaTally.exe bauen (dauert ca. 1 Minute) ...
 "%VPY%" tools\build_exe.py || goto :fehler
 
+rem --- Optional: Installer bauen, wenn Inno Setup installiert ist ---
+set "ISCC="
+if exist "%ProgramFiles(x86)%\Inno Setup 6\ISCC.exe" set "ISCC=%ProgramFiles(x86)%\Inno Setup 6\ISCC.exe"
+if exist "%LOCALAPPDATA%\Programs\Inno Setup 6\ISCC.exe" set "ISCC=%LOCALAPPDATA%\Programs\Inno Setup 6\ISCC.exe"
+if defined ISCC (
+  echo Installer bauen ...
+  for /f %%v in ('"%VPY%" -c "import novatally; print(novatally.__version__)"') do set "NTVER=%%v"
+  "%ISCC%" /Qp /DMyAppVersion=%NTVER% installer\NovaTally.iss || goto :fehler
+  echo  Installer: %CD%\dist\NovaTally-Setup.exe
+) else (
+  echo Hinweis: Inno Setup nicht gefunden - es wird nur die EXE gebaut (Installer optional^).
+)
+
 echo.
 echo  Fertig!  Die App liegt hier:  %CD%\dist\NovaTally.exe
 echo  Doppelklick darauf startet NovaTally.

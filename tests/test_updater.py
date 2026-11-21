@@ -23,6 +23,9 @@ EXE = b"MZ-neue-version" * 100
 PREFIX = updater.DOWNLOAD_PREFIX + "v9.9.9/"
 
 
+SETUP = b"Inno-Setup" * 100
+
+
 def fake_release(tag="v9.9.9", exe_url=PREFIX + "NovaTally.exe", sha=None, body=None):
     sha = sha if sha is not None else hashlib.sha256(EXE).hexdigest() + "  NovaTally.exe\n"
     files = {
@@ -33,10 +36,14 @@ def fake_release(tag="v9.9.9", exe_url=PREFIX + "NovaTally.exe", sha=None, body=
             "assets": [
                 {"name": "NovaTally.exe", "browser_download_url": exe_url},
                 {"name": "NovaTally.exe.sha256", "browser_download_url": PREFIX + "NovaTally.exe.sha256"},
+                {"name": "NovaTally-Setup.exe", "browser_download_url": PREFIX + "NovaTally-Setup.exe"},
+                {"name": "NovaTally-Setup.exe.sha256", "browser_download_url": PREFIX + "NovaTally-Setup.exe.sha256"},
             ],
         }).encode(),
         exe_url: EXE,
         PREFIX + "NovaTally.exe.sha256": sha.encode(),
+        PREFIX + "NovaTally-Setup.exe": SETUP,
+        PREFIX + "NovaTally-Setup.exe.sha256": (hashlib.sha256(SETUP).hexdigest() + "  NovaTally-Setup.exe").encode(),
     }
 
     def fetch(url, timeout=15):
@@ -125,6 +132,26 @@ class ReleaseTest(unittest.TestCase):
                 updater.download_verified(info, tmp, fetch=fetch)
             self.assertIn("Prüfsumme", str(cm.exception))
             self.assertEqual(os.listdir(tmp), [])
+
+    def test_installer_herunterladen(self):
+        fetch = fake_release()
+        info = updater.check_release("1.0.0", fetch=fetch)
+        self.assertEqual(info["setup_url"], PREFIX + "NovaTally-Setup.exe")
+        with tempfile.TemporaryDirectory() as tmp:
+            path = updater.download_verified(info, tmp, fetch=fetch, kind="setup")
+            self.assertEqual(path.name, "NovaTally-Setup.exe")
+            self.assertEqual(path.read_bytes(), SETUP)
+
+    def test_modus_je_installation(self):
+        m = updater.select_mode
+        self.assertEqual(m(True, True, True, False), "exe")       # EXE in beschreibbarem Ordner
+        self.assertEqual(m(True, True, False, False), "setup")    # z. B. C:\\Program Files
+        self.assertEqual(m(True, False, True, False), "manual")   # gebaut, aber kein Windows
+        self.assertEqual(m(False, True, True, True), "git")       # Quellcode mit Git
+        self.assertEqual(m(False, True, True, False), "manual")
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertTrue(updater.is_writable(tmp))
+        self.assertFalse(updater.is_writable(os.path.join(tempfile.gettempdir(), "gibt-es-nicht-xyz")))
 
     def test_exe_austauschen_und_aufraeumen(self):
         with tempfile.TemporaryDirectory() as tmp:

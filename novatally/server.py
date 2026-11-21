@@ -61,6 +61,7 @@ class AppContext:
         self.on_change = None  # z. B. Tray-Symbol aktualisieren
         self.request_restart = None  # von der App gesetzt: beenden und neue Version starten
         self.show_window = None  # von der App gesetzt: eigenes Fenster zeigen (zweiter Start)
+        self.request_quit = None  # von der App gesetzt: sauber beenden (Installer/Deinstaller)
         self.update_info = None  # Ergebnis der letzten Update-Prüfung
         self._library_cache = None
 
@@ -345,6 +346,11 @@ class Handler(BaseHTTPRequestHandler):
             if not db.delete_session(int(m.group(1))):
                 raise ApiError(404, "Sitzung nicht gefunden oder läuft noch")
             return self._json({"ok": True})
+        if path == "/api/quit":
+            if ctx.request_quit is None:
+                raise ApiError(409, "Beenden nicht möglich")
+            threading.Timer(0.3, ctx.request_quit).start()
+            return self._json({"ok": True})
         if path == "/api/window/show":
             if ctx.show_window is None:
                 raise ApiError(409, "Kein Fenster verfügbar")
@@ -360,6 +366,10 @@ class Handler(BaseHTTPRequestHandler):
                 cmd = updater.install(info)
             except updater.UpdateError as e:
                 raise ApiError(500, str(e))
+            if cmd is None:  # Installer übernimmt: NovaTally beendet sich, der Installer startet es neu
+                if ctx.request_quit is not None:
+                    threading.Timer(1.5, ctx.request_quit).start()
+                return self._json({"ok": True, "installer": True, "restarting": False})
             if ctx.request_restart is not None:
                 threading.Timer(1.0, ctx.request_restart, args=(cmd,)).start()
             return self._json({"ok": True, "restarting": ctx.request_restart is not None})

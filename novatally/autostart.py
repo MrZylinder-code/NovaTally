@@ -63,6 +63,22 @@ def set_enabled(enabled):
     return True
 
 
+SETUP_KEY = r"Software\NovaTally"  # vom Installer angelegt
+
+
+def installer_choice():
+    """Autostart-Wahl im Installer: True/False – oder None, wenn nicht per Setup installiert."""
+    if not IS_WINDOWS:
+        return None
+    import winreg
+
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, SETUP_KEY) as k:
+            return bool(winreg.QueryValueEx(k, "InstallerAutostart")[0])
+    except OSError:
+        return None
+
+
 LEGACY_VALUE = "Spielzeit"  # Eintrag der früheren Version
 
 

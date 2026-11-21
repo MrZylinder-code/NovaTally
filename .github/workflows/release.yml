@@ -41,11 +41,21 @@ jobs:
         shell: pwsh
         run: ./tools/smoke_test.ps1 -Exe dist\NovaTally.exe
 
+      - name: Installer bauen (Inno Setup)
+        shell: pwsh
+        run: ./tools/build_installer.ps1
+
+      - name: Installer testen
+        shell: pwsh
+        run: ./tools/installer_test.ps1
+
       - name: Prüfsumme und Release-Text erstellen
         shell: pwsh
         run: |
           $hash = (Get-FileHash dist\NovaTally.exe -Algorithm SHA256).Hash.ToLower()
           "$hash  NovaTally.exe" | Out-File -Encoding ascii dist\NovaTally.exe.sha256
+          $setupHash = (Get-FileHash dist\NovaTally-Setup.exe -Algorithm SHA256).Hash.ToLower()
+          "$setupHash  NovaTally-Setup.exe" | Out-File -Encoding ascii dist\NovaTally-Setup.exe.sha256
           $version = "${{ github.ref_name }}".TrimStart("v")
           $changelog = Get-Content CHANGELOG.md -Raw -Encoding utf8
           $m = [regex]::Match($changelog, "(?ms)^## $([regex]::Escape($version))\s*\r?\n(.*?)(?=^## |\z)")
@@ -54,15 +64,17 @@ jobs:
           $neu
 
           ### Installation
-          1. **NovaTally.exe** unten herunterladen und an einen festen Ort legen, z. B. ``C:\Tools\NovaTally.exe``.
-          2. Doppelklicken. Warnt Windows SmartScreen, auf *Weitere Informationen* → *Trotzdem ausführen* klicken
-             (die EXE ist nicht digital signiert).
-          3. NovaTally läuft danach im Infobereich unten rechts und startet künftig mit Windows.
+          - **Empfohlen: NovaTally-Setup.exe** herunterladen und ausführen. Der Installer prüft die Voraussetzungen,
+            lässt dich den Ordner wählen und legt Startmenü-Eintrag und Autostart an. Keine Administratorrechte nötig.
+          - **Ohne Installation:** NovaTally.exe an einen festen Ort legen (z. B. ``C:\Tools``) und starten.
 
-          Kein Python nötig. Daten liegen unter ``%APPDATA%\NovaTally``.
+          Warnt Windows SmartScreen, auf *Weitere Informationen* → *Trotzdem ausführen* klicken
+          (die Dateien sind noch nicht digital signiert). Kein Python nötig. Daten liegen unter ``%APPDATA%\NovaTally``.
+          Bereits installiert? *Einstellungen → Updates → Nach Updates suchen* erledigt das Update.
 
-          ### Prüfsumme (SHA-256)
-          ``$hash``
+          ### Prüfsummen (SHA-256)
+          - NovaTally-Setup.exe: ``$setupHash``
+          - NovaTally.exe: ``$hash``
 
           Prüfen in PowerShell: ``Get-FileHash .\NovaTally.exe -Algorithm SHA256``
           "@ | Out-File -Encoding utf8 dist\release-notes.md
@@ -73,7 +85,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${{ github.ref_name }}" dist\NovaTally.exe dist\NovaTally.exe.sha256 `
+          gh release create "${{ github.ref_name }}" dist\NovaTally-Setup.exe dist\NovaTally-Setup.exe.sha256 dist\NovaTally.exe dist\NovaTally.exe.sha256 `
             --title "NovaTally ${{ github.ref_name }}" `
             --notes-file dist\release-notes.md `
             --verify-tag

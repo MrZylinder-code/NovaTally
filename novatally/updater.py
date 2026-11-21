@@ -14,6 +14,7 @@ import socket
 import ssl
 import subprocess
 import sys
+import tempfile
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -28,6 +29,7 @@ LATEST_API = f"https://api.github.com/repos/{REPO}/releases/latest"
 RELEASES_URL = f"https://github.com/{REPO}/releases"
 DOWNLOAD_PREFIX = f"https://github.com/{REPO}/releases/download/"
 EXE_NAME = "NovaTally.exe"
+SETUP_NAME = "NovaTally-Setup.exe"
 MAX_DOWNLOAD = 300 * 1024 * 1024
 ROOT = Path(__file__).resolve().parent.parent
 NO_WINDOW = 0x08000000 if IS_WINDOWS else 0  # CREATE_NO_WINDOW: kein Konsolenfenster für git
@@ -125,13 +127,31 @@ def release_notes(body):
     return text.split("\n### Installation")[0].strip()
 
 
+def is_writable(folder):
+    """Darf NovaTally in diesem Ordner Dateien anlegen? (z. B. nicht in C:\\Program Files ohne Adminrechte)"""
+    try:
+        with tempfile.NamedTemporaryFile(dir=str(folder), prefix=".novatally-", delete=True):
+            return True
+    except OSError:
+        return False
+
+
+def select_mode(frozen, windows, exe_dir_writable, has_git):
+    """'exe' (EXE selbst ersetzen), 'setup' (neuen Installer starten), 'git' oder 'manual'."""
+    if frozen:
+        if not windows:
+            return "manual"
+        return "exe" if exe_dir_writable else "setup"
+    return "git" if has_git else "manual"
+
+
 def mode():
-    """'exe' (gebaute EXE), 'git' (Quellcode mit Git) oder 'manual'."""
-    if getattr(sys, "frozen", False):
-        return "exe" if IS_WINDOWS else "manual"
-    if (ROOT / ".git").exists() and shutil.which("git"):
-        return "git"
-    return "manual"
+    frozen = bool(getattr(sys, "frozen", False))
+    return select_mode(
+        frozen, IS_WINDOWS,
+        is_writable(Path(sys.executable).parent) if frozen else True,
+        (ROOT / ".git").exists() and bool(shutil.which("git")),
+    )
 
 
 # ------------------------------------------------------------------ EXE-Modus
@@ -148,6 +168,7 @@ def _latest_via_release_page(current, resolve):
         "newer": is_newer(tag, current),
         "notes": "Die Änderungen stehen auf der Release-Seite.",
         "url": final, "exe_url": base + EXE_NAME, "sha_url": base + EXE_NAME + ".sha256",
+        "setup_url": base + SETUP_NAME, "setup_sha_url": base + SETUP_NAME + ".sha256",
         "installable": True,
     }
 
@@ -169,7 +190,8 @@ def check_release(current=__version__, fetch=_fetch, resolve=_resolve):
     tag = data.get("tag_name") or ""
     assets = {a.get("name"): a.get("browser_download_url") for a in data.get("assets", [])}
     exe_url, sha_url = assets.get(EXE_NAME), assets.get(EXE_NAME + ".sha256")
-    for url in (exe_url, sha_url):
+    setup_url, setup_sha_url = assets.get(SETUP_NAME), assets.get(SETUP_NAME + ".sha256")
+    for url in (exe_url, sha_url, setup_url, setup_sha_url):
         if url and not url.startswith(DOWNLOAD_PREFIX):
             raise UpdateError("Unerwartete Download-Adresse im Release – abgebrochen.")
     return {
@@ -181,17 +203,21 @@ def check_release(current=__version__, fetch=_fetch, resolve=_resolve):
         "url": data.get("html_url") or RELEASES_URL,
         "exe_url": exe_url,
         "sha_url": sha_url,
+        "setup_url": setup_url,
+        "setup_sha_url": setup_sha_url,
         "installable": bool(exe_url and sha_url),
     }
 
 
-def download_verified(info, target_dir, fetch=_fetch):
-    """Lädt die EXE nach target_dir/NovaTally.new.exe – nur wenn die Prüfsumme stimmt."""
-    if not info.get("installable"):
-        raise UpdateError("Im Release fehlt die EXE oder ihre Prüfsumme.")
+def download_verified(info, target_dir, fetch=_fetch, kind="exe"):
+    """Lädt die EXE (bzw. den Installer) nach target_dir – nur wenn die Prüfsumme stimmt."""
+    url, sha_url = (info.get("exe_url"), info.get("sha_url")) if kind == "exe" else \
+        (info.get("setup_url"), info.get("setup_sha_url"))
+    if not (url and sha_url):
+        raise UpdateError("Im Release fehlt die Datei oder ihre Prüfsumme.")
     try:
-        sha_text = fetch(info["sha_url"]).decode("ascii", "replace")
-        data = fetch(info["exe_url"])
+        sha_text = fetch(sha_url).decode("ascii", "replace")
+        data = fetch(url)
     except UpdateError:
         raise
     except Exception as e:  # noqa: BLE001
@@ -202,7 +228,7 @@ def download_verified(info, target_dir, fetch=_fetch):
         raise UpdateError("Die Prüfsummen-Datei im Release ist unlesbar.")
     if hashlib.sha256(data).hexdigest().lower() != m.group(1).lower():
         raise UpdateError("Die Prüfsumme stimmt nicht – die Datei wurde nicht installiert.")
-    new_path = Path(target_dir) / "NovaTally.new.exe"
+    new_path = Path(target_dir) / ("NovaTally.new.exe" if kind == "exe" else SETUP_NAME)
     try:
         new_path.write_bytes(data)
     except OSError as e:
@@ -282,15 +308,29 @@ def check(current=__version__):
     if m == "git":
         return check_git(current)
     info = check_release(current)
-    if m != "exe":
-        info["mode"] = "manual"
+    info["mode"] = m
+    if m == "setup":
+        info["installable"] = bool(info.get("setup_url") and info.get("setup_sha_url"))
+    elif m != "exe":
         info["installable"] = False
     return info
 
 
-def install(info):
-    """Führt das Update aus und gibt den Befehl zurück, mit dem die neue Version gestartet wird."""
+def _launch(path):
+    os.startfile(path)  # noqa: S606 – Windows: startet den Installer (mit UAC-Abfrage, falls nötig)
+
+
+def install(info, launcher=None):
+    """Führt das Update aus.
+
+    Gibt den Befehl zurück, mit dem die neue Version gestartet wird – oder None, wenn ein Installer
+    übernimmt (dann beendet sich NovaTally nur; der Installer startet es danach selbst wieder).
+    """
     m = mode()
+    if m == "setup":
+        path = download_verified(info, tempfile.mkdtemp(prefix="novatally-update-"), kind="setup")
+        (launcher or _launch)(str(path))
+        return None
     if m == "exe":
         exe = Path(sys.executable)
         new = download_verified(info, exe.parent)
