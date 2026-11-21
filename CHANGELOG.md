@@ -3,6 +3,15 @@
 Alle nennenswerten Änderungen an NovaTally. Für jedes Release übernimmt der Release-Workflow den passenden
 Abschnitt (`## <Version>`) als Beschreibung.
 
+## 1.1.0
+
+- **Update-Button**: *Einstellungen → Updates → Nach Updates suchen* zeigt neue Versionen samt Änderungen.
+  Ein Klick auf *Jetzt aktualisieren* lädt die neue `NovaTally.exe` aus den GitHub-Releases, prüft die
+  SHA-256-Prüfsumme, ersetzt die alte Datei und startet NovaTally neu – Daten und Autostart bleiben.
+- Läuft NovaTally aus einem Git-Ordner, holt der Button den neuen Stand per `git pull`.
+- Gesucht wird nur auf Klick. Optional lässt sich die Suche beim Start einschalten (standardmäßig aus);
+  ein gefundenes Update wird dann in der Seitenleiste angezeigt.
+
 ## 1.0.1
 
 - **Mehr Spiele werden automatisch erkannt**: NovaTally liest jetzt auch die Windows-Liste der installierten

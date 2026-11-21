@@ -10,8 +10,8 @@ pro Spiel, pro Tag, Woche, Monat und Jahr, über alle Launcher hinweg.
   EA, Riot und Battle.net sowie aus eigenen Spieleordnern. Spiele ohne Launcher lassen sich mit einem Klick hinzufügen.
 - **Zuverlässig**: Sitzungen unter 1 Minute werden verworfen. Laufende Sitzungen werden alle 30 Sekunden gesichert
   (bei Absturz oder Stromausfall gehen höchstens ~30 s verloren). Standby wird nicht als Spielzeit gezählt.
-- **Privat**: Alles bleibt in einer SQLite-Datei unter `%APPDATA%\NovaTally`. Die einzige Internetverbindung lädt
-  die Steam-Coverbilder.
+- **Privat**: Alles bleibt in einer SQLite-Datei unter `%APPDATA%\NovaTally`. Ins Internet geht NovaTally nur für die
+  Steam-Coverbilder und – ausschließlich auf deinen Wunsch – für die Update-Suche bei GitHub.
 
 ## Download (Windows 10/11)
 
@@ -90,6 +90,14 @@ eigenen Ordner (`%APPDATA%\NovaTally\demo`). Vorher die normale Instanz beenden.
 NovaTally hieß früher „Spielzeit“. Beim ersten Start übernimmt NovaTally die Daten aus `%APPDATA%\Spielzeit`
 automatisch (der alte Ordner bleibt als Sicherung liegen) und ersetzt den alten Autostart-Eintrag.
 Die alte Version vorher über ihr Tray-Symbol beenden.
+
+**Wie aktualisiere ich NovaTally?**
+*Einstellungen → Updates → Nach Updates suchen.* Gibt es eine neue Version, zeigt NovaTally die Änderungen und
+aktualisiert sich auf Klick selbst: Die neue `NovaTally.exe` wird aus den GitHub-Releases geladen, ihre
+SHA-256-Prüfsumme geprüft, die alte Datei ersetzt und NovaTally neu gestartet. Deine Daten und der Autostart bleiben.
+Läuft NovaTally aus einem Git-Ordner (`start.bat`), holt derselbe Button den neuen Stand per `git pull`.
+Gesucht wird nur auf Klick; „Beim Start automatisch suchen“ ist standardmäßig aus. Liegt die EXE in einem Ordner
+ohne Schreibrechte (z. B. `C:\Program Files`), lade die neue Version manuell unter Releases herunter.
 
 **Deinstallieren:** In den Einstellungen den Autostart ausschalten, NovaTally beenden, die EXE und den Ordner
 `%APPDATA%\NovaTally` löschen.

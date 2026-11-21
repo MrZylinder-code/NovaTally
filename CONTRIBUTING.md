@@ -26,8 +26,9 @@ Unter Windows startet `start.bat` die App mit Tray, `build.bat` baut die EXE.
 
 ## Leitlinien
 
-- **Datenschutz zuerst:** Keine Telemetrie, keine Konten, keine Cloud. Die einzige Internetverbindung sind die
-  Steam-Coverbilder. Neue Verbindungen nach außen werden nicht angenommen.
+- **Datenschutz zuerst:** Keine Telemetrie, keine Konten, keine Cloud. Verbindungen nach außen gibt es nur für die
+  Steam-Coverbilder und die Update-Suche bei GitHub (nur auf Klick oder ausdrücklich eingeschaltet, ohne
+  persönliche Daten). Weitere Verbindungen nach außen werden nicht angenommen.
 - **Kernlogik nur mit der Standardbibliothek** (`db`, `stats`, `tracker`, `server`, `library`). `psutil`, `pystray`,
   `Pillow` und `winreg` nur dort importieren, wo sie gebraucht werden, damit alles andere überall testbar bleibt.
 - **Oberfläche ohne Frameworks und ohne CDN:** Vanilla JS, eigene SVG-Diagramme. Texte auf Deutsch.
