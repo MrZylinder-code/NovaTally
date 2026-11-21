@@ -1,5 +1,5 @@
 @echo off
-rem Startet Spielzeit ohne Bauen direkt mit Python (beim ersten Mal werden die Pakete installiert).
+rem Startet NovaTally ohne Bauen direkt mit Python (beim ersten Mal werden die Pakete installiert).
 setlocal
 cd /d "%~dp0"
 if not exist ".venv\Scripts\pythonw.exe" (
@@ -10,7 +10,7 @@ if not exist ".venv\Scripts\pythonw.exe" (
   call %%PY%% -m venv .venv || goto :fehler
   ".venv\Scripts\python.exe" -m pip install --disable-pip-version-check -q -r requirements.txt || goto :fehler
 )
-start "" ".venv\Scripts\pythonw.exe" "%~dp0Spielzeit.pyw" %*
+start "" ".venv\Scripts\pythonw.exe" "%~dp0NovaTally.pyw" %*
 exit /b 0
 
 :fehler

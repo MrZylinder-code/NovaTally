@@ -1,4 +1,4 @@
-/* Spielzeit – Oberfläche (Vanilla JS, eigene SVG-Diagramme, keine externen Bibliotheken). */
+/* NovaTally – Oberfläche (Vanilla JS, eigene SVG-Diagramme, keine externen Bibliotheken). */
 'use strict';
 
 /* ================================================================ Grundlagen */
@@ -20,14 +20,14 @@ const state = {
 };
 
 function load(key, fallback) {
-  try { return localStorage.getItem('spielzeit.' + key) || fallback; } catch (e) { return fallback; }
+  try { return localStorage.getItem('novatally.' + key) || fallback; } catch (e) { return fallback; }
 }
 function save(key, value) {
-  try { localStorage.setItem('spielzeit.' + key, value); } catch (e) { /* egal */ }
+  try { localStorage.setItem('novatally.' + key, value); } catch (e) { /* egal */ }
 }
 
 async function api(path, body) {
-  const opts = { method: body === undefined ? 'GET' : 'POST', headers: { 'X-Spielzeit': '1' } };
+  const opts = { method: body === undefined ? 'GET' : 'POST', headers: { 'X-NovaTally': '1' } };
   if (body !== undefined) {
     opts.headers['Content-Type'] = 'application/json';
     opts.body = JSON.stringify(body);
@@ -435,7 +435,7 @@ function renderNowCard(el) {
     el.innerHTML = `<div class="now-inner"><div class="now-text">
       <div class="now-label">Noch keine Spielzeit</div>
       <div class="now-name">Starte ein Spiel!</div>
-      <div class="now-sub">Spielzeit läuft im Hintergrund und erkennt Spiele aus Steam, Epic, GOG, Ubisoft, Xbox und mehr automatisch.</div></div></div>`;
+      <div class="now-sub">NovaTally läuft im Hintergrund und erkennt Spiele aus Steam, Epic, GOG, Ubisoft, Xbox und mehr automatisch.</div></div></div>`;
   }
   wireCovers(el);
 }
@@ -552,7 +552,7 @@ async function renderGames() {
           <div class="row"><div class="hours">${esc(fmtHours(g.seconds))}</div>
           <div class="last"><span class="swatch" style="background:${seriesColor(g.slot)}"></span>${esc(relDay(g.last))}</div></div>
         </div></a>`).join('')
-      : `<div class="card empty" style="grid-column:1/-1">${games.length ? 'Kein Spiel passt zur Suche.' : 'Noch keine Spiele erfasst. Starte ein Spiel – Spielzeit erkennt es automatisch.'}</div>`;
+      : `<div class="card empty" style="grid-column:1/-1">${games.length ? 'Kein Spiel passt zur Suche.' : 'Noch keine Spiele erfasst. Starte ein Spiel – NovaTally erkennt es automatisch.'}</div>`;
     wireCovers(grid);
   };
   draw();
@@ -663,7 +663,7 @@ async function renderHistory() {
         <div class="dur">${esc(fmtDur(s.end - s.start))}</div>
         <div>${s.open ? '' : `<button class="icon-btn" data-del="${s.id}" title="Sitzung löschen" aria-label="Sitzung löschen">${TRASH}</button>`}</div>
       </a>`).join('')}</div>`).join('')
-      : '<div class="card empty">Noch keine Sitzungen. Starte ein Spiel – Spielzeit erkennt es automatisch.</div>'}
+      : '<div class="card empty">Noch keine Sitzungen. Starte ein Spiel – NovaTally erkennt es automatisch.</div>'}
     ${sessions.length >= state.historyLimit ? '<div style="text-align:center"><button class="btn" id="more">Ältere Sitzungen laden</button></div>' : ''}
   </div>`;
   wireCovers(main);
@@ -678,12 +678,12 @@ async function renderSettings() {
   const st = await api('settings');
   if (!isCurrent(key)) return;
   main.innerHTML = `<div class="page">
-    <div class="page-head"><div><h1>Einstellungen</h1><div class="sub">Spielzeit ${esc(st.version)}${st.demo ? ' · Demo-Modus' : ''}</div></div></div>
+    <div class="page-head"><div><h1>Einstellungen</h1><div class="sub">NovaTally ${esc(st.version)}${st.demo ? ' · Demo-Modus' : ''}</div></div></div>
     ${st.tracker_note ? `<div class="banner">ℹ️ ${esc(st.tracker_note)}</div>` : ''}
     <div class="settings">
       <div class="col">
         <div class="card"><div class="card-head"><h2>Allgemein</h2></div>
-          <div class="set-row"><div><div class="t">Mit Windows starten</div><div class="d">${st.autostart_supported ? 'Spielzeit startet unauffällig im Infobereich.' : 'Nur in der Windows-Version verfügbar.'}</div></div>
+          <div class="set-row"><div><div class="t">Mit Windows starten</div><div class="d">${st.autostart_supported ? 'NovaTally startet unauffällig im Infobereich.' : 'Nur in der Windows-Version verfügbar.'}</div></div>
             <label class="switch"><input type="checkbox" id="set-autostart" ${st.autostart ? 'checked' : ''} ${st.autostart_supported ? '' : 'disabled'}><span></span></label></div>
           <div class="set-row"><div><div class="t">Tracking pausieren</div><div class="d">Solange pausiert, wird keine Spielzeit erfasst.</div></div>
             <label class="switch"><input type="checkbox" id="set-paused" ${st.paused ? 'checked' : ''}><span></span></label></div>
@@ -758,14 +758,14 @@ async function renderSettings() {
   });
   $('#export').addEventListener('click', async () => {
     try {
-      const res = await fetch('/api/export.csv', { headers: { 'X-Spielzeit': '1' } });
+      const res = await fetch('/api/export.csv', { headers: { 'X-NovaTally': '1' } });
       if (!res.ok) throw new Error('Export fehlgeschlagen');
       const blob = await res.blob();
       const cd = res.headers.get('Content-Disposition') || '';
       const m = cd.match(/filename="([^"]+)"/);
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = m ? m[1] : 'spielzeit.csv';
+      a.download = m ? m[1] : 'novatally.csv';
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(a.href), 5000);
       toast('CSV-Datei wird heruntergeladen');

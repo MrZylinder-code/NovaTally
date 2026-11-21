@@ -1,4 +1,4 @@
-"""Erzeugt spielzeit/web/icon.ico ohne Zusatzpakete (nur Standardbibliothek).
+"""Erzeugt novatally/web/icon.ico ohne Zusatzpakete (nur Standardbibliothek).
 
 Gleiches Motiv wie das Tray-Symbol: abgerundetes Quadrat (Blau→Violett), weißer Ring, Play-Dreieck.
 Aufruf:  python tools/make_icon.py
@@ -90,7 +90,7 @@ def make_ico(path):
 
 if __name__ == "__main__":
     root = Path(__file__).resolve().parent.parent
-    out = root / "spielzeit" / "web" / "icon.ico"
+    out = root / "novatally" / "web" / "icon.ico"
     out.parent.mkdir(parents=True, exist_ok=True)
     big = make_ico(out)
     print("geschrieben:", out, out.stat().st_size, "Bytes")

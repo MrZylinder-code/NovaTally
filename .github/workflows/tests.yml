@@ -24,7 +24,7 @@ jobs:
           python-version: "3.12"
 
       - name: Syntax prüfen
-        run: python -m compileall -q Spielzeit.pyw spielzeit tests tools
+        run: python -m compileall -q NovaTally.pyw novatally tests tools
 
       - name: Tests (nur Standardbibliothek)
         run: python -m unittest discover -s tests -v
@@ -33,10 +33,10 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           python -m pip install --disable-pip-version-check -q -r requirements.txt
-          python -c "from spielzeit.tracker import PsutilSource; p = PsutilSource().snapshot(); print(len(p), 'Prozesse,', sum(1 for x in p if x[2]), 'mit EXE-Pfad'); assert p"
-          python -c "from spielzeit.tray import draw_icon; print(draw_icon(paused=False).size, draw_icon(paused=True).size)"
-          python -c "from spielzeit import autostart; print(autostart.command())"
-          python -c "from spielzeit import library; e = library.scan(); print(len(e), 'Spiele erkannt')"
+          python -c "from novatally.tracker import PsutilSource; p = PsutilSource().snapshot(); print(len(p), 'Prozesse,', sum(1 for x in p if x[2]), 'mit EXE-Pfad'); assert p"
+          python -c "from novatally.tray import draw_icon; print(draw_icon(paused=False).size, draw_icon(paused=True).size)"
+          python -c "from novatally import autostart; print(autostart.command())"
+          python -c "from novatally import library; e = library.scan(); print(len(e), 'Spiele erkannt')"
 
   build:
     name: Windows-EXE bauen
@@ -51,32 +51,32 @@ jobs:
       - name: Pakete installieren
         run: python -m pip install --disable-pip-version-check -q -r requirements.txt pyinstaller
 
-      - name: Spielzeit.exe bauen (wie build.bat)
+      - name: NovaTally.exe bauen (wie build.bat)
         run: >
           python -m PyInstaller --noconfirm --clean --log-level WARN
-          --noconsole --onefile --name Spielzeit
-          --icon spielzeit\web\icon.ico
-          --add-data "spielzeit\web;spielzeit\web"
+          --noconsole --onefile --name NovaTally
+          --icon novatally\web\icon.ico
+          --add-data "novatally\web;novatally\web"
           --hidden-import pystray._win32
-          Spielzeit.pyw
+          NovaTally.pyw
 
       - name: EXE starten und Oberfläche abrufen
         shell: pwsh
         run: |
-          $env:SPIELZEIT_DATA = Join-Path $env:RUNNER_TEMP "spielzeit-daten"
-          $p = Start-Process -FilePath "dist\Spielzeit.exe" -ArgumentList "--demo","--headless" -PassThru
+          $env:NOVATALLY_DATA = Join-Path $env:RUNNER_TEMP "novatally-daten"
+          $p = Start-Process -FilePath "dist\NovaTally.exe" -ArgumentList "--demo","--headless" -PassThru
           $ok = $false
           for ($i = 0; $i -lt 30 -and -not $ok; $i++) {
             Start-Sleep -Seconds 1
             try {
-              $ping = Invoke-RestMethod -Uri "http://127.0.0.1:47815/api/ping" -Headers @{ "X-Spielzeit" = "1" }
-              $ok = $ping.app -eq "Spielzeit"
+              $ping = Invoke-RestMethod -Uri "http://127.0.0.1:47815/api/ping" -Headers @{ "X-NovaTally" = "1" }
+              $ok = $ping.app -eq "NovaTally"
             } catch { }
           }
           if (-not $ok) { Stop-Process -Id $p.Id -Force; throw "EXE antwortet nicht" }
           $html = Invoke-WebRequest -Uri "http://127.0.0.1:47815/" -UseBasicParsing
           if ($html.Content -notmatch "app.js") { throw "Oberfläche fehlt in der EXE" }
-          $o = Invoke-RestMethod -Uri "http://127.0.0.1:47815/api/overview?range=30" -Headers @{ "X-Spielzeit" = "1" }
+          $o = Invoke-RestMethod -Uri "http://127.0.0.1:47815/api/overview?range=30" -Headers @{ "X-NovaTally" = "1" }
           Write-Host "OK: $($o.games) Spiele, $($o.sessions) Sitzungen in der Demo"
           Stop-Process -Id $p.Id -Force
 
@@ -84,6 +84,6 @@ jobs:
         uses: actions/upload-artifact@v4
         continue-on-error: true  # volles Artefakt-Kontingent soll den Test nicht rot machen
         with:
-          name: Spielzeit-exe
-          path: dist/Spielzeit.exe
+          name: NovaTally-exe
+          path: dist/NovaTally.exe
           retention-days: 7

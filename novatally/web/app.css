@@ -1,4 +1,4 @@
-/* Spielzeit – Oberfläche. Farben als CSS-Variablen; dunkel ist Standard. */
+/* NovaTally – Oberfläche. Farben als CSS-Variablen; dunkel ist Standard. */
 :root {
   color-scheme: dark;
   --bg: #0f1013;

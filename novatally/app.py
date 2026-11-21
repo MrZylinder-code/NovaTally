@@ -7,6 +7,7 @@ import logging.handlers
 import os
 import shutil
 import signal
+import socket
 import subprocess
 import sys
 import threading
@@ -15,11 +16,11 @@ import webbrowser
 from pathlib import Path
 
 from . import APP_NAME, __version__, autostart, demo
-from .config import IS_WINDOWS, PORT, data_dir
+from .config import IS_WINDOWS, PORT, data_dir, legacy_data_dir, migrate_legacy_db
 from .db import Database
 from .server import AppContext, start_server
 
-log = logging.getLogger("spielzeit")
+log = logging.getLogger("novatally")
 
 
 def parse_args(argv=None):
@@ -37,7 +38,7 @@ def setup_logging(folder: Path):
     handlers = []
     try:
         handlers.append(logging.handlers.RotatingFileHandler(
-            folder / "spielzeit.log", maxBytes=1_000_000, backupCount=2, encoding="utf-8"))
+            folder / "novatally.log", maxBytes=1_000_000, backupCount=2, encoding="utf-8"))
     except OSError:
         pass
     if sys.stderr is not None:  # pythonw/--noconsole hat kein stderr
@@ -51,12 +52,20 @@ def url_for(port):
 
 
 def ping(port, timeout=2.0):
-    """Antwortet auf dem Port eine laufende Spielzeit?"""
-    req = urllib.request.Request(url_for(port) + "api/ping", headers={"X-Spielzeit": "1"})
+    """Antwortet auf dem Port eine laufende NovaTally-Instanz?"""
+    req = urllib.request.Request(url_for(port) + "api/ping", headers={"X-NovaTally": "1"})
     try:
         with urllib.request.urlopen(req, timeout=timeout) as r:
             return json.loads(r.read().decode("utf-8")).get("app") == APP_NAME
     except Exception:  # noqa: BLE001
+        return False
+
+
+def port_in_use(port):
+    try:
+        with socket.create_connection(("127.0.0.1", port), timeout=0.5):
+            return True
+    except OSError:
         return False
 
 
@@ -110,7 +119,7 @@ def main(argv=None):
     log.info("%s %s startet (Daten: %s)", APP_NAME, __version__, folder)
 
     def already_running():
-        log.info("Spielzeit läuft bereits – öffne nur das Fenster")
+        log.info("NovaTally läuft bereits – öffne nur das Fenster")
         if not args.headless and not args.autostart:
             open_window(args.port)
         return 0
@@ -119,8 +128,17 @@ def main(argv=None):
     if ping(args.port, timeout=1.0):
         return already_running()
 
+    # ---- Daten der früheren Version „Spielzeit“ übernehmen (nur wenn der Port frei ist,
+    #      also keine alte Version mehr läuft und die Datenbank gerade beschreibt)
+    if not args.demo and not port_in_use(args.port):
+        try:
+            if migrate_legacy_db(legacy_data_dir(), folder):
+                log.info("Daten der früheren Version „Spielzeit“ übernommen")
+        except OSError:
+            log.exception("Alte Daten konnten nicht übernommen werden")
+
     # ---- Server (belegter Port = Sperre). Tracker wird erst danach eingehängt.
-    db = Database(folder / "spielzeit.db")
+    db = Database(folder / "novatally.db")
     ctx = AppContext(db, None, folder, demo=args.demo)
     try:
         server = start_server(ctx, args.port)
@@ -128,7 +146,8 @@ def main(argv=None):
         db.close()
         if ping(args.port):
             return already_running()
-        message_box(f"Port {args.port} ist von einem anderen Programm belegt. Spielzeit kann nicht starten.")
+        message_box(f"Port {args.port} ist von einem anderen Programm belegt. NovaTally kann nicht starten.\n\n"
+                    "Läuft vielleicht noch die frühere Version „Spielzeit“? Dann bitte über ihr Tray-Symbol beenden.")
         return 1
 
     # ---- Datenbank aufräumen bzw. Demo-Daten
@@ -161,7 +180,8 @@ def main(argv=None):
 
     if not args.demo and autostart.supported():
         try:
-            if first_run:
+            had_legacy = autostart.remove_legacy()
+            if first_run or had_legacy:
                 autostart.set_enabled(True)  # Standard: mit Windows starten (abschaltbar)
             else:
                 autostart.repair()
@@ -176,7 +196,7 @@ def main(argv=None):
         if stopped.is_set():
             return
         stopped.set()
-        log.info("Spielzeit wird beendet")
+        log.info("NovaTally wird beendet")
         if tracker is not None:
             tracker.stop()
         server.shutdown()

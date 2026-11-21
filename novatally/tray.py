@@ -41,11 +41,11 @@ class Tray:
         self.open_window = open_window
         self.on_quit = on_quit
         self.icon = pystray.Icon(
-            "Spielzeit",
+            "NovaTally",
             icon=draw_icon(self._paused()),
             title=self._title(),
             menu=pystray.Menu(
-                pystray.MenuItem("Spielzeit öffnen", self._open, default=True),
+                pystray.MenuItem("NovaTally öffnen", self._open, default=True),
                 pystray.MenuItem("Tracking pausieren", self._toggle_pause, checked=lambda item: self._paused()),
                 pystray.Menu.SEPARATOR,
                 pystray.MenuItem("Beenden", self._quit),
@@ -56,7 +56,7 @@ class Tray:
         return bool(self.db.get_setting("paused", False))
 
     def _title(self):
-        return "Spielzeit – pausiert" if self._paused() else "Spielzeit – Tracking aktiv"
+        return "NovaTally – pausiert" if self._paused() else "NovaTally – Tracking aktiv"
 
     def _open(self, icon=None, item=None):
         self.open_window()

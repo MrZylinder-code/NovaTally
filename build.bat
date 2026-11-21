@@ -1,10 +1,10 @@
 @echo off
 setlocal
 cd /d "%~dp0"
-title Spielzeit bauen
+title NovaTally bauen
 echo.
 echo  =============================================
-echo   Spielzeit - baut die Datei dist\Spielzeit.exe
+echo   NovaTally - baut die Datei dist\NovaTally.exe
 echo  =============================================
 echo.
 
@@ -24,10 +24,10 @@ if errorlevel 1 (
   goto :fehler
 )
 
-rem --- Laeuft Spielzeit noch? Dann kann die EXE nicht ueberschrieben werden ---
-tasklist /FI "IMAGENAME eq Spielzeit.exe" 2>nul | find /I "Spielzeit.exe" >nul
+rem --- Laeuft NovaTally noch? Dann kann die EXE nicht ueberschrieben werden ---
+tasklist /FI "IMAGENAME eq NovaTally.exe" 2>nul | find /I "NovaTally.exe" >nul
 if not errorlevel 1 (
-  echo Spielzeit laeuft gerade. Bitte erst ueber das Tray-Symbol beenden.
+  echo NovaTally laeuft gerade. Bitte erst ueber das Tray-Symbol beenden.
   goto :fehler
 )
 
@@ -42,19 +42,19 @@ echo [2/4] Pakete installieren (psutil, pystray, Pillow, PyInstaller) ...
 "%VPY%" -m pip install --disable-pip-version-check -q -r requirements.txt pyinstaller || goto :fehler
 
 echo [3/4] Symbol pruefen ...
-if not exist "spielzeit\web\icon.ico" "%VPY%" tools\make_icon.py || goto :fehler
+if not exist "novatally\web\icon.ico" "%VPY%" tools\make_icon.py || goto :fehler
 
-echo [4/4] Spielzeit.exe bauen (dauert ca. 1 Minute) ...
+echo [4/4] NovaTally.exe bauen (dauert ca. 1 Minute) ...
 "%VPY%" -m PyInstaller --noconfirm --clean --log-level WARN ^
-  --noconsole --onefile --name Spielzeit ^
-  --icon spielzeit\web\icon.ico ^
-  --add-data "spielzeit\web;spielzeit\web" ^
+  --noconsole --onefile --name NovaTally ^
+  --icon novatally\web\icon.ico ^
+  --add-data "novatally\web;novatally\web" ^
   --hidden-import pystray._win32 ^
-  Spielzeit.pyw || goto :fehler
+  NovaTally.pyw || goto :fehler
 
 echo.
-echo  Fertig!  Die App liegt hier:  %CD%\dist\Spielzeit.exe
-echo  Doppelklick darauf startet Spielzeit.
+echo  Fertig!  Die App liegt hier:  %CD%\dist\NovaTally.exe
+echo  Doppelklick darauf startet NovaTally.
 echo.
 start "" explorer "%CD%\dist"
 pause

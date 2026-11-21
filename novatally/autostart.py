@@ -25,7 +25,7 @@ def command():
     pythonw = exe.with_name("pythonw.exe")
     if pythonw.exists():
         exe = pythonw
-    script = Path(__file__).resolve().parent.parent / "Spielzeit.pyw"
+    script = Path(__file__).resolve().parent.parent / "NovaTally.pyw"
     return f'"{exe}" "{script}" --autostart'
 
 
@@ -60,6 +60,25 @@ def set_enabled(enabled):
             except OSError:
                 pass
     log.info("Autostart %s", "eingeschaltet" if enabled else "ausgeschaltet")
+    return True
+
+
+LEGACY_VALUE = "Spielzeit"  # Eintrag der früheren Version
+
+
+def remove_legacy():
+    """Entfernt den Autostart-Eintrag der früheren Version „Spielzeit“. True, wenn es ihn gab."""
+    if not IS_WINDOWS:
+        return False
+    import winreg
+
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY, 0, winreg.KEY_READ | winreg.KEY_SET_VALUE) as k:
+            winreg.QueryValueEx(k, LEGACY_VALUE)
+            winreg.DeleteValue(k, LEGACY_VALUE)
+    except OSError:
+        return False
+    log.info("Alten Autostart-Eintrag „%s“ entfernt", LEGACY_VALUE)
     return True
 
 

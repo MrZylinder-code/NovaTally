@@ -1,6 +1,6 @@
 """Eingebauter Mini-Server: Web-Oberfläche + JSON-API, nur auf 127.0.0.1.
 
-Schutz: Host-Header-Prüfung (gegen DNS-Rebinding) und Pflicht-Header `X-Spielzeit: 1`
+Schutz: Host-Header-Prüfung (gegen DNS-Rebinding) und Pflicht-Header `X-NovaTally: 1`
 für alle /api/*-Aufrufe (fremde Webseiten scheitern am CORS-Preflight). Keine CORS-Header.
 """
 
@@ -81,7 +81,7 @@ class AppContext:
                 log.exception("on_change fehlgeschlagen")
 
 
-class SpielzeitServer(ThreadingHTTPServer):
+class NovaTallyServer(ThreadingHTTPServer):
     daemon_threads = True
     # Unter Windows erlaubt SO_REUSEADDR das doppelte Belegen eines Ports – dann wäre
     # die Einzelinstanz-Sperre wirkungslos. Stattdessen den Port exklusiv belegen.
@@ -135,8 +135,8 @@ class Handler(BaseHTTPRequestHandler):
             self._error(403, "Ungültiger Host")
             return False
         path = urlparse(self.path).path
-        if path.startswith("/api/") and self.headers.get("X-Spielzeit") != "1":
-            self._error(403, "Header X-Spielzeit fehlt")
+        if path.startswith("/api/") and self.headers.get("X-NovaTally") != "1":
+            self._error(403, "Header X-NovaTally fehlt")
             return False
         return True
 
@@ -298,7 +298,7 @@ class Handler(BaseHTTPRequestHandler):
             w.writerow([s["name"], library.SOURCE_LABELS.get(s["source"], s["source"]), fmt(s["start"]),
                         fmt(s["end"]), str(round((s["end"] - s["start"]) / 60, 1)).replace(".", ","),
                         "ja" if s["ignored"] else "nein"])
-        name = f"spielzeit-{datetime.now():%Y-%m-%d}.csv"
+        name = f"novatally-{datetime.now():%Y-%m-%d}.csv"
         self._send(200, "﻿" + buf.getvalue(), "text/csv; charset=utf-8",
                    {"Content-Disposition": f'attachment; filename="{name}"'})
 
@@ -370,7 +370,7 @@ class Handler(BaseHTTPRequestHandler):
 
 def start_server(ctx, port):
     """Server im Daemon-Thread starten. Wirft OSError, wenn der Port belegt ist."""
-    srv = SpielzeitServer(ctx, port)
+    srv = NovaTallyServer(ctx, port)
     t = threading.Thread(target=srv.serve_forever, name="Server", daemon=True)
     t.start()
     log.info("Server läuft auf http://127.0.0.1:%d", port)

@@ -18,11 +18,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from spielzeit import demo, library, stats  # noqa: E402
-from spielzeit.db import Database  # noqa: E402
-from spielzeit.library import LibraryEntry  # noqa: E402
-from spielzeit.server import AppContext, start_server  # noqa: E402
-from spielzeit.tracker import Tracker  # noqa: E402
+from novatally import demo, library, stats  # noqa: E402
+from novatally.db import Database  # noqa: E402
+from novatally.library import LibraryEntry  # noqa: E402
+from novatally.server import AppContext, start_server  # noqa: E402
+from novatally.tracker import Tracker  # noqa: E402
 
 SEP = os.sep
 GAMES = SEP + os.path.join("spiele")
@@ -344,6 +344,26 @@ class LibraryTest(unittest.TestCase):
             self.assertEqual(library.scan([tmp])[-1].source, "custom")
 
 
+class LegacyTest(unittest.TestCase):
+    def test_alte_daten_werden_uebernommen(self):
+        from novatally.config import migrate_legacy_db
+        with tempfile.TemporaryDirectory() as tmp:
+            old, new = Path(tmp, "Spielzeit"), Path(tmp, "NovaTally")
+            old.mkdir(); new.mkdir()
+            db = Database(old / "spielzeit.db")
+            g = db.get_or_create_game("steam:1", "Altes Spiel", "steam")
+            db.insert_sessions([(g["id"], 1000, 5000)])
+            db.close()
+            self.assertTrue(migrate_legacy_db(old, new))
+            db2 = Database(new / "novatally.db")
+            self.assertEqual([s["name"] for s in db2.all_sessions()], ["Altes Spiel"])
+            db2.close()
+            self.assertTrue((old / "spielzeit.db").exists())  # Original bleibt als Sicherung
+            self.assertFalse(migrate_legacy_db(old, new))     # nie eine vorhandene DB überschreiben
+            self.assertFalse(migrate_legacy_db(None, new))
+            self.assertFalse(migrate_legacy_db(Path(tmp, "gibtsnicht"), Path(tmp)))
+
+
 class ApiTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -365,7 +385,7 @@ class ApiTest(unittest.TestCase):
         cls.tmp.cleanup()
 
     def req(self, path, body=None, headers=None, raw=False):
-        h = {"X-Spielzeit": "1"}
+        h = {"X-NovaTally": "1"}
         h.update(headers or {})
         data = None
         if body is not None:
@@ -400,7 +420,7 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(cm.exception.code, 403)
         status, _, _ = self.req("/api/ping", headers={"Host": f"boese.example:{self.port}"})
         self.assertEqual(status, 403)
-        status, _, _ = self.req("/", headers={"Host": "spielzeit.example:%d" % self.port}, raw=True)
+        status, _, _ = self.req("/", headers={"Host": "novatally.example:%d" % self.port}, raw=True)
         self.assertEqual(status, 403)  # auch die Oberfläche selbst (DNS-Rebinding)
         status, _, _ = self.req("/api/game/999999")
         self.assertEqual(status, 404)
@@ -413,7 +433,7 @@ class ApiTest(unittest.TestCase):
                 self.assertIn(ctype, resp.headers["Content-Type"])
                 self.assertIn("default-src 'self'", resp.headers["Content-Security-Policy"])
         with self.assertRaises(urllib.error.HTTPError):
-            urllib.request.urlopen(f"http://127.0.0.1:{self.port}/../spielzeit/db.py", timeout=5)
+            urllib.request.urlopen(f"http://127.0.0.1:{self.port}/../novatally/db.py", timeout=5)
 
     def test_csv_export(self):
         status, content, headers = self.req("/api/export.csv", raw=True)
@@ -457,13 +477,13 @@ class ApiTest(unittest.TestCase):
 
     def test_kaputtes_json(self):
         r = urllib.request.Request(f"http://127.0.0.1:{self.port}/api/settings", data=b"{nope",
-                                   headers={"X-Spielzeit": "1", "Content-Type": "application/json"})
+                                   headers={"X-NovaTally": "1", "Content-Type": "application/json"})
         with self.assertRaises(urllib.error.HTTPError) as cm:
             urllib.request.urlopen(r, timeout=5)
         self.assertEqual(cm.exception.code, 400)
 
     def test_einzelinstanz(self):
-        from spielzeit.app import ping
+        from novatally.app import ping
         self.assertTrue(ping(self.port))
         with self.assertRaises(OSError):
             start_server(self.ctx, self.port)
