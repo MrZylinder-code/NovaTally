@@ -13,7 +13,15 @@ pro Spiel, pro Tag, Woche, Monat und Jahr, über alle Launcher hinweg.
 - **Privat**: Alles bleibt in einer SQLite-Datei unter `%APPDATA%\NovaTally`. Die einzige Internetverbindung lädt
   die Steam-Coverbilder.
 
-## Installation (Windows 10/11)
+## Download (Windows 10/11)
+
+Die fertige **`NovaTally.exe`** gibt es unter [Releases](https://github.com/MrZylinder-code/NovaTally/releases/latest).
+Herunterladen, an einen festen Ort legen (z. B. `C:\Tools\NovaTally.exe`) und doppelklicken. Python wird nicht gebraucht.
+
+> Windows SmartScreen warnt bei der nicht signierten EXE („Der Computer wurde durch Windows geschützt“).
+> Dann auf „Weitere Informationen“ → „Trotzdem ausführen“ klicken. Die SHA-256-Prüfsumme steht im Release.
+
+## Selbst bauen
 
 1. **Python installieren** (einmalig): <https://www.python.org/downloads/> → „Download Python 3.x“.
    Im Installer unten **„Add python.exe to PATH“ anhaken**, dann „Install Now“.
@@ -27,9 +35,6 @@ Beim ersten Start öffnet sich das Fenster, und NovaTally trägt sich in den Win
 (Symbol: blaues Quadrat mit Play-Zeichen; eventuell hinter dem Pfeil `^` versteckt).
 
 **Ohne Bauen** geht es auch: `start.bat` doppelklicken. NovaTally läuft dann direkt mit Python.
-
-> Windows SmartScreen kann bei einer selbst gebauten EXE warnen („Der Computer wurde durch Windows geschützt“).
-> Dann auf „Weitere Informationen“ → „Trotzdem ausführen“ klicken.
 
 ## Bedienung
 
@@ -101,6 +106,8 @@ novatally/autostart.py Registry-Eintrag HKCU\…\Run
 novatally/demo.py      Demo-Daten
 novatally/web/         Oberfläche (HTML/CSS/JS, eigene SVG-Diagramme)
 tools/make_icon.py     erzeugt icon.ico ohne Zusatzpakete
+tools/build_exe.py     PyInstaller-Aufruf (für build.bat und GitHub Actions)
+tools/smoke_test.ps1   startet die EXE testweise und prüft die Oberfläche
 tests/                 Tests (nur Standardbibliothek)
 ```
 

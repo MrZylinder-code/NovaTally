@@ -45,12 +45,7 @@ echo [3/4] Symbol pruefen ...
 if not exist "novatally\web\icon.ico" "%VPY%" tools\make_icon.py || goto :fehler
 
 echo [4/4] NovaTally.exe bauen (dauert ca. 1 Minute) ...
-"%VPY%" -m PyInstaller --noconfirm --clean --log-level WARN ^
-  --noconsole --onefile --name NovaTally ^
-  --icon novatally\web\icon.ico ^
-  --add-data "novatally\web;novatally\web" ^
-  --hidden-import pystray._win32 ^
-  NovaTally.pyw || goto :fehler
+"%VPY%" tools\build_exe.py || goto :fehler
 
 echo.
 echo  Fertig!  Die App liegt hier:  %CD%\dist\NovaTally.exe

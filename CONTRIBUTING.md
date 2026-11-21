@@ -34,6 +34,18 @@ Unter Windows startet `start.bat` die App mit Tray, `build.bat` baut die EXE.
 - **Neue Erkennungsregeln** (Launcher, ignorierte Programme) bitte mit einem Test in `tests/test_novatally.py`.
 - **Nicht-Ziele** (siehe `docs/GOAL.md`): Freundesliste, Chat, Screenshots, Overlay, Cloud-Sync, Achievements.
 
+## Neue Version veröffentlichen (nur Maintainer)
+
+1. In `novatally/__init__.py` die Version erhöhen (z. B. `1.1.0`) und in `CHANGELOG.md` einen Abschnitt
+   `## 1.1.0` mit den Änderungen ergänzen. Beides per Pull Request nach `main`.
+2. Auf dem gemergten Stand das Tag setzen und pushen:
+   ```bash
+   git tag v1.1.0
+   git push origin v1.1.0
+   ```
+3. Der Workflow „Release“ prüft, dass Tag und Version zusammenpassen, testet, baut `NovaTally.exe`,
+   startet sie probeweise und veröffentlicht sie mit Prüfsumme und Changelog-Text unter *Releases*.
+
 ## Fehler melden
 
 Bitte ein Issue öffnen mit Windows-Version, Spiel und Launcher sowie den letzten Zeilen aus

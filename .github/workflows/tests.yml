@@ -52,33 +52,11 @@ jobs:
         run: python -m pip install --disable-pip-version-check -q -r requirements.txt pyinstaller
 
       - name: NovaTally.exe bauen (wie build.bat)
-        run: >
-          python -m PyInstaller --noconfirm --clean --log-level WARN
-          --noconsole --onefile --name NovaTally
-          --icon novatally\web\icon.ico
-          --add-data "novatally\web;novatally\web"
-          --hidden-import pystray._win32
-          NovaTally.pyw
+        run: python tools/build_exe.py
 
       - name: EXE starten und Oberfläche abrufen
         shell: pwsh
-        run: |
-          $env:NOVATALLY_DATA = Join-Path $env:RUNNER_TEMP "novatally-daten"
-          $p = Start-Process -FilePath "dist\NovaTally.exe" -ArgumentList "--demo","--headless" -PassThru
-          $ok = $false
-          for ($i = 0; $i -lt 30 -and -not $ok; $i++) {
-            Start-Sleep -Seconds 1
-            try {
-              $ping = Invoke-RestMethod -Uri "http://127.0.0.1:47815/api/ping" -Headers @{ "X-NovaTally" = "1" }
-              $ok = $ping.app -eq "NovaTally"
-            } catch { }
-          }
-          if (-not $ok) { Stop-Process -Id $p.Id -Force; throw "EXE antwortet nicht" }
-          $html = Invoke-WebRequest -Uri "http://127.0.0.1:47815/" -UseBasicParsing
-          if ($html.Content -notmatch "app.js") { throw "Oberfläche fehlt in der EXE" }
-          $o = Invoke-RestMethod -Uri "http://127.0.0.1:47815/api/overview?range=30" -Headers @{ "X-NovaTally" = "1" }
-          Write-Host "OK: $($o.games) Spiele, $($o.sessions) Sitzungen in der Demo"
-          Stop-Process -Id $p.Id -Force
+        run: ./tools/smoke_test.ps1 -Exe dist\NovaTally.exe
 
       - name: EXE als Download bereitstellen
         uses: actions/upload-artifact@v4

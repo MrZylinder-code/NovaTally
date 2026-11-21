@@ -1,0 +1,79 @@
+name: Release
+
+# Neue Version veröffentlichen:
+#   1. Version in novatally/__init__.py erhöhen und Abschnitt in CHANGELOG.md ergänzen
+#   2. git tag v1.2.3 && git push origin v1.2.3
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Release bauen und veröffentlichen
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Tag und Version im Code vergleichen
+        shell: pwsh
+        run: |
+          $code = python -c "import novatally; print(novatally.__version__)"
+          $tag = "${{ github.ref_name }}".TrimStart("v")
+          if ($code -ne $tag) { throw "Tag ${{ github.ref_name }} passt nicht zur Version $code in novatally/__init__.py" }
+          Write-Host "Version $code"
+
+      - name: Tests
+        run: python -m unittest discover -s tests -v
+
+      - name: Pakete installieren
+        run: python -m pip install --disable-pip-version-check -q -r requirements.txt pyinstaller
+
+      - name: NovaTally.exe bauen
+        run: python tools/build_exe.py
+
+      - name: EXE starten und prüfen
+        shell: pwsh
+        run: ./tools/smoke_test.ps1 -Exe dist\NovaTally.exe
+
+      - name: Prüfsumme und Release-Text erstellen
+        shell: pwsh
+        run: |
+          $hash = (Get-FileHash dist\NovaTally.exe -Algorithm SHA256).Hash.ToLower()
+          "$hash  NovaTally.exe" | Out-File -Encoding ascii dist\NovaTally.exe.sha256
+          $version = "${{ github.ref_name }}".TrimStart("v")
+          $changelog = Get-Content CHANGELOG.md -Raw -Encoding utf8
+          $m = [regex]::Match($changelog, "(?ms)^## $([regex]::Escape($version))\s*\r?\n(.*?)(?=^## |\z)")
+          $neu = if ($m.Success) { $m.Groups[1].Value.Trim() } else { "Siehe CHANGELOG.md." }
+          @"
+          $neu
+
+          ### Installation
+          1. **NovaTally.exe** unten herunterladen und an einen festen Ort legen, z. B. ``C:\Tools\NovaTally.exe``.
+          2. Doppelklicken. Warnt Windows SmartScreen, auf *Weitere Informationen* → *Trotzdem ausführen* klicken
+             (die EXE ist nicht digital signiert).
+          3. NovaTally läuft danach im Infobereich unten rechts und startet künftig mit Windows.
+
+          Kein Python nötig. Daten liegen unter ``%APPDATA%\NovaTally``.
+
+          ### Prüfsumme (SHA-256)
+          ``$hash``
+
+          Prüfen in PowerShell: ``Get-FileHash .\NovaTally.exe -Algorithm SHA256``
+          "@ | Out-File -Encoding utf8 dist\release-notes.md
+          Get-Content dist\release-notes.md
+
+      - name: GitHub-Release erstellen
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" dist\NovaTally.exe dist\NovaTally.exe.sha256 `
+            --title "NovaTally ${{ github.ref_name }}" `
+            --notes-file dist\release-notes.md `
+            --verify-tag
