@@ -31,6 +31,7 @@ def parse_args(argv=None):
                    help="ohne Tray-Symbol und Fenster (nur Server und Tracker)")
     p.add_argument("--autostart", action="store_true", help="beim Windows-Start: kein Fenster öffnen")
     p.add_argument("--updated", action="store_true", help=argparse.SUPPRESS)  # Neustart nach einem Update
+    p.add_argument("--quit", action="store_true", help="laufendes NovaTally sauber beenden (für Installer)")
     p.add_argument("--port", type=int, default=PORT, help=argparse.SUPPRESS)
     args, _unknown = p.parse_known_args(argv)
     return args
@@ -80,6 +81,23 @@ def request_show(port, timeout=3.0):
             return r.status == 200
     except Exception:  # noqa: BLE001
         return False
+
+
+def request_quit_running(port, wait=20.0):
+    """Bittet eine laufende Instanz, sich sauber zu beenden, und wartet, bis der Port frei ist."""
+    req = urllib.request.Request(url_for(port) + "api/quit", data=b"{}", method="POST",
+                                 headers={"X-NovaTally": "1", "Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=3) as r:
+            r.read()
+    except Exception:  # noqa: BLE001 – läuft nicht (oder antwortet nicht)
+        return False
+    deadline = time.time() + wait
+    while time.time() < deadline:
+        if not port_in_use(port):
+            return True
+        time.sleep(0.3)
+    return False
 
 
 def find_edge():
@@ -187,6 +205,11 @@ def main(argv=None):
             open_window(args.port)
         return 0
 
+    if args.quit:
+        stopped = request_quit_running(args.port)
+        log.info("Beenden angefordert: %s", "beendet" if stopped else "lief nicht")
+        return 0
+
     if args.updated:
         log.info("Neustart nach Update auf Version %s", __version__)
         for _ in range(30):  # die alte Instanz gibt den Port gerade frei
@@ -256,7 +279,9 @@ def main(argv=None):
     if not args.demo and autostart.supported():
         try:
             had_legacy = autostart.remove_legacy()
-            if first_run or had_legacy:
+            if autostart.installer_choice() is not None:
+                pass  # per Setup installiert: der Installer hat über den Autostart entschieden
+            elif first_run or had_legacy:
                 autostart.set_enabled(True)  # Standard: mit Windows starten (abschaltbar)
             else:
                 autostart.repair()
@@ -333,6 +358,7 @@ def main(argv=None):
         request_quit()
 
     ctx.request_restart = request_restart
+    ctx.request_quit = request_quit
     ctx.show_window = show_ui if not args.headless else None
 
     # ---- Tray-Symbol in eigenem Thread (der Hauptthread gehört dem Fenster)

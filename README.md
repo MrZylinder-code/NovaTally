@@ -15,11 +15,20 @@ pro Spiel, pro Tag, Woche, Monat und Jahr, über alle Launcher hinweg.
 
 ## Download (Windows 10/11)
 
-Die fertige **`NovaTally.exe`** gibt es unter [Releases](https://github.com/MrZylinder-code/NovaTally/releases/latest).
-Herunterladen, an einen festen Ort legen (z. B. `C:\Tools\NovaTally.exe`) und doppelklicken. Python wird nicht gebraucht.
+Unter [Releases](https://github.com/MrZylinder-code/NovaTally/releases/latest) gibt es zwei Varianten:
 
-> Windows SmartScreen warnt bei der nicht signierten EXE („Der Computer wurde durch Windows geschützt“).
-> Dann auf „Weitere Informationen“ → „Trotzdem ausführen“ klicken. Die SHA-256-Prüfsumme steht im Release.
+- **`NovaTally-Setup.exe` (empfohlen)** – ein Installations-Assistent, der
+  - prüft, ob dein PC alles mitbringt (Windows 10/11, 64 Bit, WebView2 für das NovaTally-Fenster),
+  - dich den Installationsordner wählen lässt (Standard: `%LOCALAPPDATA%\Programs\NovaTally`, **ohne Adminrechte**),
+  - Startmenü-Eintrag, auf Wunsch Desktop-Verknüpfung und Autostart anlegt,
+  - fehlendes WebView2 direkt bei Microsoft nachinstalliert,
+  - NovaTally unter *Einstellungen → Apps* sauber deinstallierbar macht (deine Spieldaten bleiben auf Wunsch erhalten).
+- **`NovaTally.exe` (portabel)** – ohne Installation: an einen festen Ort legen (z. B. `C:\Tools`) und starten.
+
+Python wird in beiden Fällen nicht gebraucht.
+
+> Windows SmartScreen warnt bei noch nicht signierten Programmen („Der Computer wurde durch Windows geschützt“).
+> Dann auf „Weitere Informationen“ → „Trotzdem ausführen“ klicken. Die SHA-256-Prüfsummen stehen im Release.
 
 ## Selbst bauen
 
@@ -102,7 +111,9 @@ Läuft NovaTally aus einem Git-Ordner (`start.bat`), holt derselbe Button den ne
 Gesucht wird nur auf Klick; „Beim Start automatisch suchen“ ist standardmäßig aus. Liegt die EXE in einem Ordner
 ohne Schreibrechte (z. B. `C:\Program Files`), lade die neue Version manuell unter Releases herunter.
 
-**Deinstallieren:** In den Einstellungen den Autostart ausschalten, NovaTally beenden, die EXE und den Ordner
+**Deinstallieren:** Mit Installer: *Windows-Einstellungen → Apps → NovaTally → Deinstallieren* – der
+Deinstaller beendet NovaTally, entfernt Autostart und Verknüpfungen und fragt, ob auch die Spieldaten weg sollen.
+Portable Version: In den Einstellungen den Autostart ausschalten, NovaTally beenden, die EXE und den Ordner
 `%APPDATA%\NovaTally` löschen.
 
 ## Für Entwickler
@@ -124,6 +135,8 @@ novatally/web/         Oberfläche (HTML/CSS/JS, eigene SVG-Diagramme)
 tools/make_icon.py     erzeugt icon.ico ohne Zusatzpakete
 tools/build_exe.py     PyInstaller-Aufruf (für build.bat und GitHub Actions)
 tools/smoke_test.ps1   startet die EXE testweise und prüft die Oberfläche
+installer/NovaTally.iss  Installer (Inno Setup): Systemprüfung, Ordnerwahl, Autostart, WebView2, Deinstallation
+tools/build_installer.ps1 / installer_test.ps1  Installer bauen bzw. still installieren/deinstallieren und prüfen
 tests/                 Tests (nur Standardbibliothek)
 ```
 

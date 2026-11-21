@@ -59,6 +59,14 @@ jobs:
         shell: pwsh
         run: ./tools/smoke_test.ps1 -Exe dist\NovaTally.exe
 
+      - name: Installer bauen (Inno Setup)
+        shell: pwsh
+        run: ./tools/build_installer.ps1
+
+      - name: Installer testen (installieren, starten, aktualisieren, deinstallieren)
+        shell: pwsh
+        run: ./tools/installer_test.ps1
+
       - name: Eigenes Fenster prüfen (informativ)
         continue-on-error: true
         shell: pwsh
@@ -69,5 +77,7 @@ jobs:
         continue-on-error: true  # volles Artefakt-Kontingent soll den Test nicht rot machen
         with:
           name: NovaTally-exe
-          path: dist/NovaTally.exe
+          path: |
+            dist/NovaTally.exe
+            dist/NovaTally-Setup.exe
           retention-days: 7
