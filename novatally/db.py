@@ -130,6 +130,22 @@ class Database:
     def set_ignored(self, game_id, ignored):
         self._run("UPDATE games SET ignored=? WHERE id=?", (1 if ignored else 0, game_id))
 
+    def auto_exclude(self, keys):
+        """Bekannte Nicht-Spiele einmalig ausschließen (der Nutzer kann sie danach wieder einschließen)."""
+        done = set(self.get_setting("auto_excluded", []) or [])
+        changed = []
+        for key in keys:
+            if key in done:
+                continue
+            row = self.game_by_key(key)
+            if row:
+                if not row["ignored"]:
+                    self.set_ignored(row["id"], True)
+                    changed.append(row["name"])
+                done.add(key)
+        self.set_setting("auto_excluded", sorted(done))
+        return changed
+
     def add_manual_game(self, exe, name):
         key = "exe:" + norm_path(exe)
         with self.lock:

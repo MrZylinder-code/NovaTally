@@ -134,6 +134,12 @@ class TrackerTest(unittest.TestCase):
         self.assertEqual(self.db.open_sessions(), [])
         self.assertEqual(self.db.games(include_ignored=True), [])
 
+    def test_anti_cheat_dienst_im_spielordner(self):
+        self.src.procs = [(1, "vgc.exe", os.path.join(OTHER, "vgc.exe")),
+                          (2, "BEService.exe", os.path.join(OTHER, "BEService.exe"))]
+        self.run_ticks(0, 200)
+        self.assertEqual(self.db.open_sessions(), [])
+
     def test_unbekannter_prozess(self):
         self.src.procs = [(1, "notepad.exe", os.path.join(SEP + "windows", "notepad.exe")), (2, "x", None)]
         self.run_ticks(0, 100)
@@ -276,6 +282,18 @@ class StatsTest(unittest.TestCase):
         self.assertIn("Andere", [s["name"] for s in oall["history"]["series"]])
         self.assertEqual(len(oall["history"]["series"]), 8)  # 7 Farben + Andere
 
+    def test_bekannte_nicht_spiele_einmalig_ausschliessen(self):
+        we = self.db.get_or_create_game("steam:431960", "Wallpaper Engine", "steam", "431960")
+        self.db.insert_sessions([(we["id"], 1000, 90000)])
+        keys = [f"steam:{a}" for a in library.STEAM_EXCLUDED_APPIDS]
+        self.assertEqual(self.db.auto_exclude(keys), ["Wallpaper Engine"])
+        self.assertTrue(self.db.game(we["id"])["ignored"])
+        self.assertEqual(self.db.all_sessions(), [])  # zählt nicht mehr in der Statistik
+        # Nutzer schließt es bewusst wieder ein -> darf beim nächsten Start nicht erneut passieren
+        self.db.set_ignored(we["id"], False)
+        self.assertEqual(self.db.auto_exclude(keys), [])
+        self.assertFalse(self.db.game(we["id"])["ignored"])
+
     def test_offene_sitzung_zaehlt_live(self):
         g = self.db.get_or_create_game("steam:1", "Spiel", "steam")
         sid = self.db.start_session(g["id"], 1000)
@@ -317,6 +335,7 @@ class LibraryTest(unittest.TestCase):
             acf(steam, "228980", "Steamworks Common Redistributables", "Steamworks Shared")
             acf(lib2, "1145350", "Hades II", "Hades II")
             acf(lib2, "1493710", "Proton Experimental", "Proton - Experimental")
+            acf(lib2, "431960", "Wallpaper Engine", "wallpaper_engine")
             games = library.steam_games(str(steam))
             self.assertEqual(sorted(g.name for g in games), ["Counter-Strike 2", "Hades II"])
             hades = [g for g in games if g.appid == "1145350"][0]
@@ -333,6 +352,51 @@ class LibraryTest(unittest.TestCase):
             Path(tmp, "b.item").write_text("kaputt")
             games = library.epic_games(tmp)
             self.assertEqual([(g.name, g.key, g.source) for g in games], [("Fortnite", "epic:fortnite", "epic")])
+
+    def test_installierte_programme(self):
+        root = SEP + os.path.join("pf86")
+        poe = os.path.join(root, "Grinding Gear Games", "Path of Exile")
+        entries = [
+            # Standalone-Client: Ordner nur über das Symbol bekannt
+            {"DisplayName": "Path of Exile", "Publisher": "Grinding Gear Games", "InstallLocation": None,
+             "DisplayIcon": '"%s",0' % os.path.join(poe, "PathOfExile.exe")},
+            {"DisplayName": "Diablo IV", "Publisher": "Blizzard Entertainment",
+             "InstallLocation": os.path.join(root, "Diablo IV") + SEP},
+            {"DisplayName": "Dragon Age: Origins", "Publisher": "Electronic Arts",
+             "InstallLocation": os.path.join(root, "Dragon Age")},
+            # nicht als Spiel zählen:
+            {"DisplayName": "Riot Vanguard", "Publisher": "Riot Games, Inc.",
+             "InstallLocation": os.path.join(root, "Riot Vanguard")},
+            {"DisplayName": "Battle.net", "Publisher": "Blizzard Entertainment",
+             "InstallLocation": os.path.join(root, "Battle.net")},
+            {"DisplayName": "EA app", "Publisher": "Electronic Arts", "InstallLocation": os.path.join(root, "EA")},
+            {"DisplayName": "Origin", "Publisher": "Electronic Arts", "InstallLocation": os.path.join(root, "Origin")},
+            {"DisplayName": "Rockstar Games Launcher", "Publisher": "Rockstar Games",
+             "InstallLocation": os.path.join(root, "Rockstar Games", "Launcher")},
+            {"DisplayName": "Notepad++", "Publisher": "Notepad++ Team", "InstallLocation": os.path.join(root, "npp")},
+            {"DisplayName": "Kaputt", "Publisher": "Blizzard Entertainment", "InstallLocation": SEP},
+            {"DisplayName": "Ohne Ort", "Publisher": "Wargaming.net", "InstallLocation": "", "DisplayIcon": "x.ico"},
+            {"DisplayName": None, "Publisher": "Blizzard Entertainment", "InstallLocation": os.path.join(root, "X")},
+        ]
+        games = library.uninstall_games(entries)
+        self.assertEqual([(g.name, g.source) for g in games],
+                         [("Path of Exile", "ggg"), ("Diablo IV", "battlenet"), ("Dragon Age: Origins", "ea")])
+        self.assertEqual(games[0].folder, poe)
+        self.assertEqual(games[1].folder, os.path.join(root, "Diablo IV"))  # ohne abschließenden Trenner
+
+    def test_zu_allgemeine_ordner(self):
+        self.assertTrue(library.is_too_generic(SEP))
+        self.assertTrue(library.is_too_generic(SEP + "Games"))
+        self.assertFalse(library.is_too_generic(os.path.join(SEP + "Games", "Path of Exile")))
+        old = os.environ.get("ProgramFiles")
+        os.environ["ProgramFiles"] = os.path.join(SEP + "x", "Programme")
+        try:
+            self.assertTrue(library.is_too_generic(os.path.join(SEP + "x", "Programme") + SEP))
+        finally:
+            if old is None:
+                del os.environ["ProgramFiles"]
+            else:
+                os.environ["ProgramFiles"] = old
 
     def test_unterordner(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -474,6 +538,24 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(self.req("/api/settings", {"theme": "pink"})[0], 400)
         self.assertEqual(self.req("/api/settings", {"extra_folders": ["/gibt/es/nicht"]})[0], 400)
         self.req("/api/settings", {"paused": False, "theme": "dark", "extra_folders": []})
+
+    def test_bibliothek_ausschliessen(self):
+        entry = LibraryEntry(SEP + os.path.join("x", "wallpaper_engine"), "folder:wallpaper", "Wallpaper App", "custom", None)
+        self.ctx._library_cache = [entry]
+        try:
+            _, st, _ = self.req("/api/settings")
+            self.assertEqual(st["libraries"][0]["games"], [{"name": "Wallpaper App", "key": "folder:wallpaper", "ignored": False}])
+            status, data, _ = self.req("/api/library/ignore", {"key": "folder:wallpaper", "ignored": True})
+            self.assertEqual(status, 200)
+            self.assertTrue(self.db.game(data["id"])["ignored"])
+            _, st, _ = self.req("/api/settings")
+            self.assertTrue(st["libraries"][0]["games"][0]["ignored"])
+            self.assertIn("Wallpaper App", [g["name"] for g in st["ignored"]])
+            self.assertEqual(self.req("/api/library/ignore", {"key": "folder:wallpaper", "ignored": False})[0], 200)
+            self.assertFalse(self.db.game(data["id"])["ignored"])
+            self.assertEqual(self.req("/api/library/ignore", {"key": "gibt:esnicht"})[0], 404)
+        finally:
+            self.ctx._library_cache = None
 
     def test_kaputtes_json(self):
         r = urllib.request.Request(f"http://127.0.0.1:{self.port}/api/settings", data=b"{nope",
