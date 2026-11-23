@@ -41,6 +41,10 @@ jobs:
         shell: pwsh
         run: ./tools/smoke_test.ps1 -Exe dist\NovaTally.exe
 
+      - name: Neustart nach Update prüfen (eigener Temp-Ordner)
+        shell: pwsh
+        run: ./tools/restart_test.ps1 -Exe dist\NovaTally.exe
+
       - name: Installer bauen (Inno Setup)
         shell: pwsh
         run: ./tools/build_installer.ps1

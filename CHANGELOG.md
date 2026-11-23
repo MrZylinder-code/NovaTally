@@ -3,6 +3,14 @@
 Alle nennenswerten Änderungen an NovaTally. Für jedes Release übernimmt der Release-Workflow den passenden
 Abschnitt (`## <Version>`) als Beschreibung.
 
+## 1.4.1
+
+- **Update-Neustart repariert**: Nach „Jetzt aktualisieren“ konnte die neue Version im Fenster „Nicht gefunden“
+  zeigen, begleitet von der Meldung „Failed to remove temporary directory …\_MEI…“. Ursache: Die neu gestartete
+  NovaTally.exe benutzte den Temp-Ordner der alten mit, den diese beim Beenden löschte. Jetzt startet jede neue
+  Instanz eigenständig. Wird 1.4.1 noch von einer älteren Version gestartet, startet sie sich einmal selbst sauber
+  neu (die Temp-Meldung der alten Version kann dabei ein letztes Mal erscheinen).
+
 ## 1.4.0
 
 - **Nur die Zeit im Spiel zählen**: Auf der Seite jedes Spiels gibt es jetzt „Was zählt als Spielzeit?“ – entweder

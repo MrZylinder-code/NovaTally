@@ -203,8 +203,42 @@ def quiet_system_errors():
         pass
 
 
+def independent_child_environment():
+    """PyInstaller-EXE: Kindprozesse (Neustart nach Update, Installer → Neustart) sollen sich eigenständig entpacken.
+
+    Ohne PYINSTALLER_RESET_ENVIRONMENT hält eine neu gestartete NovaTally.exe sich für einen Hilfsprozess der
+    laufenden und benutzt deren Temp-Ordner (_MEI…) mit – den die alte Instanz beim Beenden löscht.
+    Folge: „Nicht gefunden“ im Fenster und „Failed to remove temporary directory“.
+    """
+    if not getattr(sys, "frozen", False):
+        return
+    for key in list(os.environ):
+        if key.startswith("_PYI_") or key == "_MEIPASS2":
+            os.environ.pop(key, None)
+    os.environ["PYINSTALLER_RESET_ENVIRONMENT"] = "1"
+
+
+def spawn_independent(cmd):
+    """Startet eine neue, eigenständige NovaTally-Instanz (z. B. nach einem Update)."""
+    env = dict(os.environ)
+    if getattr(sys, "frozen", False):
+        env["PYINSTALLER_RESET_ENVIRONMENT"] = "1"
+        env["NOVATALLY_FRESH"] = "1"  # sauber gestartet – keine Selbstheilung nötig
+        for key in [k for k in env if k.startswith("_PYI_") or k == "_MEIPASS2"]:
+            env.pop(key, None)
+    flags = getattr(subprocess, "DETACHED_PROCESS", 0) | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+    subprocess.Popen(cmd, creationflags=flags, close_fds=True, env=env)
+
+
 def main(argv=None):
     args = parse_args(argv)
+    fresh = os.environ.pop("NOVATALLY_FRESH", None)
+    # Selbstheilung: Wurde diese Version nach einem Update noch von einer älteren NovaTally (bis 1.4.0) gestartet,
+    # teilt sie deren Temp-Ordner. Dann einmal eigenständig neu starten, bevor irgendetwas geladen wird.
+    if args.updated and getattr(sys, "frozen", False) and not fresh:
+        spawn_independent([sys.executable, *sys.argv[1:]])
+        return 0
+    independent_child_environment()
     quiet_system_errors()
     folder = data_dir()
     if args.demo:
@@ -294,6 +328,12 @@ def main(argv=None):
     if tracker is not None:
         tracker.start()
 
+    if os.environ.pop("NOVATALLY_SELFTEST_RESTART", None):
+        # Nur für den automatischen Test: verhält sich wie ein Update-Neustart, ohne etwas herunterzuladen
+        exe_cmd = [sys.executable, "--updated"] if getattr(sys, "frozen", False) else \
+            [sys.executable, str(Path(__file__).resolve().parent.parent / "NovaTally.pyw"), "--updated"]
+        threading.Timer(3.0, lambda: ctx.request_restart and ctx.request_restart(exe_cmd)).start()
+
     if not args.demo and autostart.supported():
         try:
             had_legacy = autostart.remove_legacy()
@@ -372,7 +412,8 @@ def main(argv=None):
 
     def request_restart(cmd):
         """Nach einem Update: sauber beenden, danach startet die neue Version."""
-        passthrough = (["--headless"] if args.headless else []) + (["--port", str(args.port)] if args.port != PORT else [])
+        passthrough = ((["--headless"] if args.headless else []) + (["--demo"] if args.demo else [])
+                       + (["--port", str(args.port)] if args.port != PORT else []))
         restart_cmd[:] = list(cmd) + passthrough
         request_quit()
 
@@ -437,8 +478,7 @@ def main(argv=None):
     db.close()
     if restart_cmd:
         log.info("Starte neue Version: %s", restart_cmd)
-        flags = getattr(subprocess, "DETACHED_PROCESS", 0) | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
-        subprocess.Popen(restart_cmd, creationflags=flags, close_fds=True)
+        spawn_independent(restart_cmd)
     return 0
 
 
