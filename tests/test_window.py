@@ -101,6 +101,16 @@ class WindowTest(unittest.TestCase):
         fw.events.closing.fire()
         self.assertEqual(hints, [1])                          # Hinweis nur beim ersten Mal
 
+    def test_herunterfahren_wird_nie_blockiert(self):
+        """Fährt Windows herunter, darf das Fenster das Schließen nicht abbrechen."""
+        ended = []
+        w = self.make(on_session_end=lambda: ended.append(1), shutting_down=lambda: True)
+        fw = self.mod.windows[0]
+        self.assertEqual(fw.events.closing.fire(), [True])   # Schließen erlaubt
+        self.assertNotIn("hide", fw.calls)
+        self.assertEqual(ended, [1])                          # App beendet sich sauber
+        self.assertTrue(w.quitting)
+
     def test_tray_oeffnen_zeigt_dasselbe_fenster(self):
         w = self.make(hidden=True)
         w.show()

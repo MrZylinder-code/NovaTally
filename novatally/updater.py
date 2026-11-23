@@ -255,6 +255,26 @@ def swap_exe(current_exe, new_exe):
     return old
 
 
+def cleanup_temp(max_age_hours=24, temp_dir=None):
+    """Heruntergeladene Installer früherer Updates im Temp-Ordner wegräumen."""
+    import time
+
+    base = Path(temp_dir or tempfile.gettempdir())
+    removed = 0
+    try:
+        candidates = list(base.glob("novatally-update-*"))
+    except OSError:
+        return 0
+    for p in candidates:
+        try:
+            if p.is_dir() and time.time() - p.stat().st_mtime > max_age_hours * 3600:
+                shutil.rmtree(p, ignore_errors=True)
+                removed += 1
+        except OSError:
+            pass
+    return removed
+
+
 def cleanup_old(exe=None):
     """Nach einem Update: die alte EXE wegräumen (klappt erst, wenn sie nicht mehr läuft)."""
     exe = Path(exe or sys.executable)

@@ -872,5 +872,6 @@ addEventListener('hashchange', route);
 if (window.matchMedia) matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => state.redraw && state.redraw());
 applyTheme(null);
 refreshStatus().then(route);
-setInterval(refreshStatus, 5000);
+setInterval(() => { if (!document.hidden) refreshStatus(); }, 5000);  // versteckt: nicht nachfragen
+document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshStatus(); });
 setInterval(tickTimers, 1000);
