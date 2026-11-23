@@ -270,6 +270,8 @@ def main(argv=None):
         excluded = db.auto_exclude(f"steam:{appid}" for appid in library.STEAM_EXCLUDED_APPIDS)
         if excluded:
             log.info("Keine Spiele, automatisch ausgeschlossen: %s", ", ".join(excluded))
+        for name in db.apply_only_exe_defaults():
+            log.info("%s: zählt ab jetzt nur das eigentliche Spiel (Vorgabe)", name)
         closed = db.close_stale_sessions()
         if closed:
             log.info("%d offene Sitzung(en) vom letzten Lauf beim letzten Heartbeat beendet", closed)

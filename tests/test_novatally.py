@@ -223,6 +223,94 @@ class TrackerTest(unittest.TestCase):
         self.assertEqual([(x["end"], x["open"]) for x in self.sessions()], [(150, 0)])
 
 
+LOL = os.path.join(GAMES, "Riot Games", "League of Legends")
+
+
+class SpielprogrammTest(unittest.TestCase):
+    """Nur das eigentliche Spielprogramm zählen – z. B. bei League of Legends nur das Match, nicht den Client."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.db = Database(Path(self.tmp.name) / "t.db")
+        self.src = FakeSource()
+        entries = ENTRIES + [LibraryEntry(LOL, "folder:lol", "League of Legends", "riot", None)]
+        self.tr = Tracker(self.db, self.src, scan=lambda extra: entries)
+
+    def tearDown(self):
+        self.db.close()
+        self.tmp.cleanup()
+
+    def run_ticks(self, start, stop, step=5):
+        t = start
+        while t <= stop:
+            self.tr.tick(t)
+            t += step
+
+    def test_league_of_legends_zaehlt_nur_matches(self):
+        client = [(10, "LeagueClient.exe", os.path.join(LOL, "LeagueClient.exe")),
+                  (11, "LeagueClientUx.exe", os.path.join(LOL, "LeagueClientUx.exe"))]
+        match = (20, "League of Legends.exe", os.path.join(LOL, "Game", "League of Legends.exe"))
+        self.src.procs = client                 # Lobby, Warteschlange, Champion-Auswahl
+        self.run_ticks(0, 600)
+        self.src.procs = client + [match]       # Match: 25 Minuten
+        self.run_ticks(605, 2105)
+        self.src.procs = client                 # zurück in der Lobby
+        self.run_ticks(2110, 2700)
+        self.src.procs = []
+        self.tr.tick(2705)
+        s = self.db.all_sessions()
+        self.assertEqual([(x["name"], x["start"], x["end"]) for x in s], [("League of Legends", 605, 2110)])
+        game = self.db.game_by_key("folder:lol")
+        self.assertEqual(game["only_exe"], "league of legends.exe")  # Vorgabe greift automatisch
+        seen = {e["exe"] for e in self.db.game_exes(game["id"])}
+        self.assertEqual(seen, {"leagueclient.exe", "leagueclientux.exe", "league of legends.exe"})
+
+    def test_alle_programme_zaehlen_wieder(self):
+        self.src.procs = [(10, "LeagueClient.exe", os.path.join(LOL, "LeagueClient.exe"))]
+        self.run_ticks(0, 30)
+        game = self.db.game_by_key("folder:lol")
+        self.db.set_only_exe(game["id"], None)  # Nutzer: „Alle Programme im Spielordner“
+        self.run_ticks(35, 300)
+        self.src.procs = []
+        self.tr.tick(305)
+        self.assertEqual([(x["start"], x["end"]) for x in self.db.all_sessions()], [(35, 305)])
+
+    def test_eigene_wahl_fuer_anderes_spiel(self):
+        self.db.get_or_create_game("steam:427520", "Factorio", "steam", "427520")
+        self.db.set_only_exe(self.db.game_by_key("steam:427520")["id"], "Factorio.exe")
+        launcher = (1, "launcher.exe", os.path.join(FACTORIO, "launcher.exe"))
+        spiel = (2, "factorio.exe", os.path.join(FACTORIO, "bin", "factorio.exe"))  # Groß/klein egal
+        self.src.procs = [launcher]
+        self.run_ticks(0, 300)
+        self.assertEqual(self.db.open_sessions(), [])
+        self.src.procs = [launcher, spiel]
+        self.run_ticks(305, 600)
+        self.assertEqual(len(self.db.open_sessions()), 1)
+
+    def test_vorgabe_fuer_bestehende_spiele_nur_einmal(self):
+        g = self.db.get_or_create_game("folder:alt", "Platzhalter", "riot")
+        self.db.rename_game(g["id"], "League of Legends")
+        self.db._run("UPDATE games SET only_exe=NULL WHERE id=?", (g["id"],))  # wie in einer alten Datenbank
+        self.assertEqual(self.db.apply_only_exe_defaults(), ["League of Legends"])
+        self.assertEqual(self.db.game(g["id"])["only_exe"], "league of legends.exe")
+        self.db.set_only_exe(g["id"], None)  # Nutzer will alles zählen
+        self.assertEqual(self.db.apply_only_exe_defaults(), [])
+        self.assertIsNone(self.db.game(g["id"])["only_exe"])
+
+    def test_alte_datenbank_wird_erweitert(self):
+        import sqlite3
+        path = Path(self.tmp.name) / "alt.db"
+        con = sqlite3.connect(path)
+        con.executescript("CREATE TABLE games (id INTEGER PRIMARY KEY, key TEXT UNIQUE NOT NULL, name TEXT NOT NULL,"
+                          " source TEXT NOT NULL DEFAULT '', appid TEXT, path TEXT, ignored INTEGER NOT NULL DEFAULT 0,"
+                          " created INTEGER NOT NULL);"
+                          "INSERT INTO games(key, name, created) VALUES('steam:1', 'Alt', 0);")
+        con.close()
+        db = Database(path)
+        self.assertIsNone(db.game_by_key("steam:1")["only_exe"])
+        db.close()
+
+
 class StatsTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -607,6 +695,19 @@ class ApiTest(unittest.TestCase):
             updater.check, updater.install = orig_check, orig_install
             self.ctx.request_restart = None
             self.ctx.update_info = None
+
+    def test_spielprogramm_waehlen(self):
+        gid = self.db.games()[0]["id"]
+        self.db.record_exe(self.db.game(gid)["key"], "game.exe", "Game.exe", 1000)
+        _, d, _ = self.req(f"/api/game/{gid}")
+        self.assertIsNone(d["only_exe"])
+        self.assertEqual(d["exes"], [{"exe": "game.exe", "display": "Game.exe", "last_seen": 1000}])
+        status, r, _ = self.req(f"/api/game/{gid}/only_exe", {"exe": "Game.exe"})
+        self.assertEqual((status, r["only_exe"]), (200, "game.exe"))
+        self.assertEqual(self.req(f"/api/game/{gid}")[1]["only_exe"], "game.exe")
+        self.assertEqual(self.req(f"/api/game/{gid}/only_exe", {"exe": "C:\\x\\game.exe"})[0], 400)
+        self.assertEqual(self.req(f"/api/game/{gid}/only_exe", {"exe": None})[1]["only_exe"], None)
+        self.assertEqual(self.req("/api/game/999999/only_exe", {"exe": "x.exe"})[0], 404)
 
     def test_sauber_beenden_per_api(self):
         calls = []

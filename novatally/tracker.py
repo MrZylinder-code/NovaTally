@@ -78,6 +78,7 @@ class Tracker:
         self.lock = threading.RLock()
         self.active = {}          # key -> {"session_id", "game_id", "start"}
         self.match_cache = {}     # (pid, exe) -> entry | None
+        self.seen_noted = set()   # (key, exe) – schon als „gesehen“ gespeichert
         self.prefixes = []        # [(normierter Ordner mit Trenner, LibraryEntry)], längste zuerst
         self.manual = {}          # normierter EXE-Pfad -> (key, name)
         self.manual_names = {}    # EXE-Dateiname -> (key, name) für Prozesse ohne lesbaren Pfad
@@ -150,6 +151,7 @@ class Tracker:
                 self._load_library(now)
 
             found = {}
+            only = self.db.only_exe_map()  # Spiele, bei denen nur ein bestimmtes Programm zählt
             for pid, name, exe in self.source.snapshot():
                 ck = (pid, exe or name)
                 if ck in self.match_cache:
@@ -157,7 +159,15 @@ class Tracker:
                 else:
                     m = self.match(name, exe)
                     self.match_cache[ck] = m
-                if m and m[0] not in found:
+                if not m:
+                    continue
+                display = os.path.basename(exe or name or "")
+                base = display.lower()
+                self._note_exe(m[0], base, display, now)
+                want = only.get(m[0])
+                if want and base != want:
+                    continue  # z. B. LeagueClient.exe, wenn nur das Match zählen soll
+                if m[0] not in found:
                     found[m[0]] = m
             if len(self.match_cache) > 5000:
                 self.match_cache.clear()
@@ -180,6 +190,15 @@ class Tracker:
                 self.db.touch_sessions([a["session_id"] for a in self.active.values()], now)
                 self.last_heartbeat = now
             self.last_tick = now
+
+    def _note_exe(self, key, exe, display, now):
+        if not exe or (key, exe) in self.seen_noted:
+            return
+        try:
+            if self.db.record_exe(key, exe, display, now):
+                self.seen_noted.add((key, exe))
+        except Exception:  # noqa: BLE001 – Merken ist nur Komfort
+            log.exception("Programm konnte nicht gemerkt werden")
 
     def _close(self, key, end):
         a = self.active.pop(key)

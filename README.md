@@ -74,6 +74,10 @@ bevor sie je gezählt wurden. Rückgängig geht es unter *Einstellungen → Ausg
 Bekannte Steam-Programme, die keine Spiele sind (Wallpaper Engine, SteamVR, OBS, Lossless Scaling …), erkennt
 NovaTally von sich aus nicht als Spiel.
 
+**Der Launcher bzw. Client eines Spiels wird mitgezählt (z. B. bei League of Legends).**
+Auf der Seite des Spiels unter *Was zählt als Spielzeit?* „Nur …“ das eigentliche Spielprogramm wählen – dann zählt
+nur die Zeit im Spiel. Bei League of Legends ist das schon voreingestellt: Es zählen nur die Matches.
+
 **Werden Launcher wie Steam oder der Epic Games Launcher mitgezählt?**
 Nein. Launcher, Installer, Updater, Crash-Reporter und Redistributables werden ignoriert.
 

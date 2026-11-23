@@ -76,6 +76,9 @@ def fill(db, now=None, seed=42):
     if frueh.timestamp() + 35 * 60 < latest_allowed:
         rows.append((ids["steam:730"], int(frueh.timestamp()), int(frueh.timestamp()) + 35 * 60))
     db.insert_sessions(rows)
+    # Programme, die NovaTally bei League of Legends gesehen hat (für „Was zählt als Spielzeit?“)
+    for exe, ago in (("LeagueClient.exe", 2), ("LeagueClientUx.exe", 2), ("League of Legends.exe", 3)):
+        db.record_exe("folder:demo-league", exe.lower(), exe, now - ago * 86400)
     return True
 
 
