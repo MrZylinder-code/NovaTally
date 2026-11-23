@@ -597,6 +597,7 @@ async function renderGame(id) {
       <div class="card fact"><div class="label">Erstes Mal</div><div class="value">${g.first ? esc(fmtDateShort(g.first)) : '–'}</div></div>
       <div class="card fact"><div class="label">Zuletzt</div><div class="value">${g.last ? esc(fmtDateShort(g.last)) : '–'}</div></div>
     </div>
+    ${countCardHtml(g)}
     <div class="card"><div class="card-head"><h2>Spielzeit pro Monat</h2><div class="meta">letzte 12 Monate</div></div><div class="chart" id="chart-months"></div></div>
     <div class="card"><div class="card-head"><h2>Sitzungen</h2><div class="meta">${g.session_count} insgesamt</div></div>
       ${g.sessions_list.length ? `<table class="table"><thead><tr><th>Datum</th><th>Uhrzeit</th><th class="r">Dauer</th><th class="act"></th></tr></thead><tbody>
@@ -629,6 +630,40 @@ async function renderGame(id) {
     if (g.ignored) route(); else location.hash = '#/spiele';
   });
   wireDeletes(main);
+  wireCountCard(g);
+}
+
+/* „Was zählt als Spielzeit?“ – alle Programme im Spielordner oder nur das eigentliche Spiel */
+function countCardHtml(g) {
+  if (g.source === 'manual') return '';  // manuell hinzugefügt: zählt ohnehin nur diese eine EXE
+  const opts = new Map(g.exes.map(e => [e.exe, e]));
+  if (g.only_exe && !opts.has(g.only_exe)) opts.set(g.only_exe, { exe: g.only_exe, display: g.only_exe, last_seen: null });
+  const row = (value, title, hint) => `<label class="count-opt"><input type="radio" name="only-exe" value="${esc(value)}" ${((g.only_exe || '') === value) ? 'checked' : ''}>
+      <span><span class="t">${title}</span>${hint ? `<span class="d">${hint}</span>` : ''}</span></label>`;
+  return `<div class="card" id="count-card"><div class="card-head"><h2>Was zählt als Spielzeit?</h2></div>
+    <p class="help">Liegt im Spielordner auch ein Launcher oder Client (z. B. bei League of Legends), wähle das eigentliche Spielprogramm – dann zählt nur die Zeit im Spiel.</p>
+    <div class="count-opts">
+      ${row('', 'Alle Programme im Spielordner', 'Standard')}
+      ${[...opts.values()].map(e => row(e.exe, 'Nur <b>' + esc(e.display) + '</b>', e.last_seen ? 'zuletzt gesehen ' + esc(relDay(e.last_seen)) : 'noch nicht gesehen')).join('')}
+    </div>
+    <div class="add-row"><input class="input" id="only-exe-input" placeholder="anderes Programm, z. B. game.exe"><button class="btn" id="only-exe-set">Übernehmen</button></div>
+    ${g.exes.length ? '' : '<p class="help" style="margin-top:10px">Sobald das Spiel läuft, erscheinen hier seine Programme zur Auswahl.</p>'}
+  </div>`;
+}
+
+function wireCountCard(g) {
+  const card = $('#count-card');
+  if (!card) return;
+  const save = async exe => {
+    const r = await act(() => api(`game/${g.id}/only_exe`, { exe: exe || null }),
+      exe ? `Zählt jetzt nur ${exe}` : 'Zählt wieder alle Programme im Spielordner');
+    if (r) route();
+  };
+  $$('input[name="only-exe"]', card).forEach(i => i.addEventListener('change', () => save(i.value)));
+  $('#only-exe-set', card).addEventListener('click', () => {
+    const v = $('#only-exe-input', card).value.trim();
+    if (v) save(v);
+  });
 }
 
 const TRASH = '<svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg>';

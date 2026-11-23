@@ -36,7 +36,20 @@ CREATE TABLE IF NOT EXISTS settings (
     key   TEXT PRIMARY KEY,
     value TEXT
 );
+CREATE TABLE IF NOT EXISTS game_exes (
+    game_id   INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+    exe       TEXT NOT NULL,          -- Dateiname in Kleinbuchstaben, z. B. 'league of legends.exe'
+    display   TEXT,                   -- wie Windows ihn meldet, z. B. 'League of Legends.exe'
+    last_seen INTEGER,
+    PRIMARY KEY (game_id, exe)
+);
 """
+
+# Spiele, bei denen von Haus aus nur ein bestimmtes Programm zählt (Name in Kleinbuchstaben -> EXE).
+# League of Legends: Der Client (LeagueClient*.exe) liegt im Spielordner – gezählt wird nur das Match.
+DEFAULT_ONLY_EXE = {
+    "league of legends": "league of legends.exe",
+}
 
 
 def norm_path(path: str) -> str:
@@ -55,6 +68,14 @@ class Database:
             self.conn.execute("PRAGMA synchronous=NORMAL")
             self.conn.execute("PRAGMA foreign_keys=ON")
             self.conn.executescript(SCHEMA)
+            self._migrate()
+
+    def _migrate(self):
+        """Ältere Datenbanken um neue Spalten ergänzen."""
+        cols = {r["name"] for r in self.conn.execute("PRAGMA table_info(games)").fetchall()}
+        if "only_exe" not in cols:
+            # Nur dieses Programm (Dateiname, klein) zählt als Spielzeit – NULL: alle Programme im Spielordner
+            self.conn.execute("ALTER TABLE games ADD COLUMN only_exe TEXT")
 
     # ------------------------------------------------------------------ intern
     def _all(self, sql, args=()):
@@ -101,10 +122,49 @@ class Database:
                     row["appid"] = appid
                 return row
             cur = self._run(
-                "INSERT INTO games(key, name, source, appid, path, created) VALUES(?,?,?,?,?,?)",
-                (key, name, source, appid, path, int(time.time())),
+                "INSERT INTO games(key, name, source, appid, path, created, only_exe) VALUES(?,?,?,?,?,?,?)",
+                (key, name, source, appid, path, int(time.time()), DEFAULT_ONLY_EXE.get((name or "").lower())),
             )
             return self.game(cur.lastrowid)
+
+    # ------------------------------------------------- welches Programm zählt
+    def only_exe_map(self):
+        """{key: exe} für Spiele, bei denen nur ein bestimmtes Programm zählt."""
+        return {r["key"]: r["only_exe"] for r in self._all("SELECT key, only_exe FROM games WHERE only_exe IS NOT NULL")}
+
+    def set_only_exe(self, game_id, exe):
+        self._run("UPDATE games SET only_exe=? WHERE id=?", ((exe or "").lower() or None, game_id))
+
+    def apply_only_exe_defaults(self):
+        """Vorgaben (z. B. League of Legends) einmalig auf bestehende Spiele anwenden – eigene Wahl bleibt."""
+        done = set(self.get_setting("only_exe_defaults", []) or [])
+        changed = []
+        for g in self._all("SELECT id, name, only_exe FROM games"):
+            exe = DEFAULT_ONLY_EXE.get((g["name"] or "").lower())
+            if exe and g["id"] not in done:
+                if g["only_exe"] is None:
+                    self.set_only_exe(g["id"], exe)
+                    changed.append(g["name"])
+                done.add(g["id"])
+        self.set_setting("only_exe_defaults", sorted(done))
+        return changed
+
+    def record_exe(self, key, exe, display, now):
+        """Merkt sich, welches Programm bei einem Spiel lief. False, wenn es das Spiel noch nicht gibt."""
+        with self.lock:
+            row = self._one("SELECT id FROM games WHERE key=?", (key,))
+            if not row:
+                return False
+            self._run(
+                "INSERT INTO game_exes(game_id, exe, display, last_seen) VALUES(?,?,?,?) "
+                "ON CONFLICT(game_id, exe) DO UPDATE SET display=excluded.display, last_seen=excluded.last_seen",
+                (row["id"], exe.lower(), display, int(now)),
+            )
+            return True
+
+    def game_exes(self, game_id):
+        return self._all("SELECT exe, display, last_seen FROM game_exes WHERE game_id=? ORDER BY last_seen DESC",
+                         (game_id,))
 
     def game(self, game_id):
         return self._one("SELECT * FROM games WHERE id=?", (game_id,))

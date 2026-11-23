@@ -1,4 +1,4 @@
 """NovaTally – erfasst automatisch die Spielzeit aller PC-Spiele."""
 
-__version__ = "1.3.1"
+__version__ = "1.4.0"
 APP_NAME = "NovaTally"

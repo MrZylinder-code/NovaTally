@@ -305,6 +305,15 @@ h1, h2, h3 { margin: 0; font-weight: 650; letter-spacing: -.01em; }
 .table .r { text-align: right; }
 .table .act { width: 44px; text-align: right; }
 
+.count-opts { display: flex; flex-direction: column; gap: 6px; }
+.count-opt { display: flex; gap: 10px; align-items: flex-start; padding: 9px 12px; border-radius: 9px; background: var(--card-2); border: 1px solid transparent; cursor: pointer; }
+.count-opt:hover { border-color: var(--border); }
+.count-opt input { margin-top: 3px; accent-color: var(--accent); }
+.count-opt .t { display: block; font-weight: 550; }
+.count-opt .t b { font-weight: 700; }
+.count-opt .d { display: block; color: var(--muted); font-size: 12px; }
+.count-opt:has(input:checked) { border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+
 /* ----------------------------------------------------------------- Verlauf */
 .day-group { padding: 6px 8px; }
 .day-head { display: flex; justify-content: space-between; align-items: baseline; padding: 10px 12px 8px; }

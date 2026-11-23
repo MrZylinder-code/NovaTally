@@ -341,6 +341,20 @@ class Handler(BaseHTTPRequestHandler):
                 if ctx.tracker is not None:
                     ctx.tracker.tick()
             return self._json({"ok": True})
+        m = re.fullmatch(r"/api/game/(\d+)/only_exe", path)
+        if m:
+            gid = int(m.group(1))
+            if not db.game(gid):
+                raise ApiError(404, "Spiel nicht gefunden")
+            exe = body.get("exe")
+            if exe is not None:
+                exe = str(exe).strip().strip('"')
+                if not exe or len(exe) > 260 or any(c in exe for c in '\\/:*?"<>|'):
+                    raise ApiError(400, "Bitte nur den Dateinamen angeben, z. B. game.exe")
+            db.set_only_exe(gid, exe)
+            if ctx.tracker is not None:
+                ctx.tracker.tick()  # sofort anwenden (z. B. laufende Client-Sitzung beenden)
+            return self._json({"ok": True, "only_exe": (exe or "").lower() or None})
         m = re.fullmatch(r"/api/session/(\d+)/delete", path)
         if m:
             if not db.delete_session(int(m.group(1))):

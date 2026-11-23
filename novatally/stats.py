@@ -288,6 +288,9 @@ def game_detail(db, game_id, now=None):
         key=g["key"],
         path=g["path"],
         ignored=bool(g["ignored"]),
+        only_exe=g.get("only_exe"),
+        exes=[{"exe": e["exe"], "display": e["display"] or e["exe"], "last_seen": e["last_seen"]}
+              for e in db.game_exes(game_id)],
         seconds=round(total),
         session_count=len(sessions),
         average=round(total / len(sessions)) if sessions else 0,

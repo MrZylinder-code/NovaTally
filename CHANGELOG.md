@@ -3,6 +3,15 @@
 Alle nennenswerten Änderungen an NovaTally. Für jedes Release übernimmt der Release-Workflow den passenden
 Abschnitt (`## <Version>`) als Beschreibung.
 
+## 1.4.0
+
+- **Nur die Zeit im Spiel zählen**: Auf der Seite jedes Spiels gibt es jetzt „Was zählt als Spielzeit?“ – entweder
+  alle Programme im Spielordner (wie bisher) oder **nur das eigentliche Spielprogramm**. Zur Auswahl stehen die
+  Programme, die NovaTally bei diesem Spiel schon gesehen hat; andere lassen sich per Dateiname eintragen.
+- **League of Legends** zählt ab jetzt von Haus aus nur die **Matches** (`League of Legends.exe`) – Client, Lobby,
+  Warteschlange und Champion-Auswahl nicht mehr. Jedes Match ist eine eigene Sitzung. Bereits erfasste
+  LoL-Zeiten bleiben unverändert (sie lassen sich nachträglich nicht aufteilen).
+
 ## 1.3.1
 
 - **Herunterfahren wird nicht mehr aufgehalten**: Das NovaTally-Fenster brach beim Herunterfahren bzw. Abmelden
