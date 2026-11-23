@@ -190,8 +190,22 @@ def message_box(text):
     print(text, file=sys.stderr or sys.stdout)
 
 
+def quiet_system_errors():
+    """Keine Windows-Fehlerdialoge („Kein Datenträger im Laufwerk“ o. ä.) beim Zugriff auf Laufwerke."""
+    if not IS_WINDOWS:
+        return
+    try:
+        import ctypes
+
+        SEM_FAILCRITICALERRORS, SEM_NOOPENFILEERRORBOX = 0x0001, 0x8000
+        ctypes.windll.kernel32.SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOOPENFILEERRORBOX)
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def main(argv=None):
     args = parse_args(argv)
+    quiet_system_errors()
     folder = data_dir()
     if args.demo:
         folder = folder / "demo"
@@ -244,6 +258,8 @@ def main(argv=None):
         message_box(f"Port {args.port} ist von einem anderen Programm belegt. NovaTally kann nicht starten.\n\n"
                     "Läuft vielleicht noch die frühere Version „Spielzeit“? Dann bitte über ihr Tray-Symbol beenden.")
         return 1
+
+    threading.Thread(target=updater.cleanup_temp, name="Aufraeumen", daemon=True).start()
 
     # ---- Datenbank aufräumen bzw. Demo-Daten
     first_run = db.get_setting("first_run_done") is None
@@ -333,7 +349,8 @@ def main(argv=None):
     if not args.headless and window.available():
         try:
             win = window.AppWindow(url_for(args.port), folder / "webview",
-                                   hidden=not show_at_start, on_first_hide=first_hide_hint)
+                                   hidden=not show_at_start, on_first_hide=first_hide_hint,
+                                   on_session_end=stop.set)
         except Exception:  # noqa: BLE001
             log.exception("Eigenes Fenster nicht verfügbar – nutze Edge/Browser")
             win = None

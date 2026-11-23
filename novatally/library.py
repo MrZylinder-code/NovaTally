@@ -96,10 +96,35 @@ def _reg_subkeys(key):
         i += 1
 
 
+DRIVE_FIXED = 3
+
+
+def fixed_drives(mask, drive_type):
+    """Feste lokale Laufwerke ab C: aus der Laufwerks-Bitmaske (GetLogicalDrives).
+
+    Netzlaufwerke, DVD-Laufwerke und Kartenleser werden ausgelassen: Getrennte Netzlaufwerke können
+    sonst lange hängen, leere Wechsellaufwerke Fehlermeldungen auslösen.
+    """
+    out = []
+    for i, letter in enumerate(string.ascii_uppercase):
+        if i < 2 or not (mask >> i) & 1:
+            continue
+        root = f"{letter}:\\"
+        if drive_type(root) == DRIVE_FIXED:
+            out.append(root)
+    return out
+
+
 def _drives():
     if not IS_WINDOWS:
         return []
-    return [f"{d}:\\" for d in string.ascii_uppercase[2:] if os.path.exists(f"{d}:\\")]
+    try:
+        import ctypes
+
+        k32 = ctypes.windll.kernel32
+        return fixed_drives(k32.GetLogicalDrives(), lambda root: k32.GetDriveTypeW(ctypes.c_wchar_p(root)))
+    except Exception:  # noqa: BLE001
+        return []
 
 
 def folder_key(folder):

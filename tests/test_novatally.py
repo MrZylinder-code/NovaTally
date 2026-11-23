@@ -398,6 +398,12 @@ class LibraryTest(unittest.TestCase):
             else:
                 os.environ["ProgramFiles"] = old
 
+    def test_nur_feste_laufwerke(self):
+        # Bitmaske: A, C, D, E, Z vorhanden
+        mask = (1 << 0) | (1 << 2) | (1 << 3) | (1 << 4) | (1 << 25)
+        types_ = {"C:\\": 3, "D:\\": 5, "E:\\": 2, "Z:\\": 4}  # fest, DVD, Wechseldatenträger, Netz
+        self.assertEqual(library.fixed_drives(mask, lambda r: types_.get(r, 0)), ["C:\\"])
+
     def test_unterordner(self):
         with tempfile.TemporaryDirectory() as tmp:
             for n in ("Spiel A", "Riot Client", "Launcher", "Spiel B"):

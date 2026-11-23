@@ -3,6 +3,17 @@
 Alle nennenswerten Änderungen an NovaTally. Für jedes Release übernimmt der Release-Workflow den passenden
 Abschnitt (`## <Version>`) als Beschreibung.
 
+## 1.3.1
+
+- **Herunterfahren wird nicht mehr aufgehalten**: Das NovaTally-Fenster brach beim Herunterfahren bzw. Abmelden
+  das Schließen ab (eigentlich gedacht als „Schließen = im Infobereich weiterlaufen“). Windows konnte dann
+  „NovaTally verhindert das Herunterfahren“ melden. Jetzt beendet sich NovaTally dabei sauber.
+- **Laufwerke**: Für die Spielerkennung werden nur noch feste lokale Laufwerke angesehen – keine Netzlaufwerke,
+  DVD-Laufwerke oder Kartenleser. Das vermeidet Hänger bei getrennten Netzlaufwerken und Meldungen wie
+  „Kein Datenträger im Laufwerk“; solche Systemfehler-Dialoge sind zusätzlich abgeschaltet.
+- Im Hintergrund (Fenster versteckt) fragt die Oberfläche nicht mehr alle 5 Sekunden den Status ab.
+- Heruntergeladene Installer früherer Updates werden aus dem Temp-Ordner entfernt.
+
 ## 1.3.0
 
 - **Installer**: Neu gibt es `NovaTally-Setup.exe`. Der Assistent prüft die Voraussetzungen (Windows 10/11,

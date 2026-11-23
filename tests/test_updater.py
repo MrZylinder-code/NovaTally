@@ -9,6 +9,7 @@ import ssl
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 import urllib.error
 from pathlib import Path
@@ -152,6 +153,19 @@ class ReleaseTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             self.assertTrue(updater.is_writable(tmp))
         self.assertFalse(updater.is_writable(os.path.join(tempfile.gettempdir(), "gibt-es-nicht-xyz")))
+
+    def test_alte_update_reste_wegraeumen(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            alt, neu, fremd = Path(tmp, "novatally-update-alt"), Path(tmp, "novatally-update-neu"), Path(tmp, "anderes")
+            for d in (alt, neu, fremd):
+                d.mkdir()
+                (d / "NovaTally-Setup.exe").write_bytes(b"x")
+            old_time = time.time() - 3 * 86400
+            os.utime(alt, (old_time, old_time))
+            self.assertEqual(updater.cleanup_temp(temp_dir=tmp), 1)
+            self.assertFalse(alt.exists())
+            self.assertTrue(neu.exists())    # frisch – könnte gerade laufen
+            self.assertTrue(fremd.exists())  # nicht von NovaTally
 
     def test_exe_austauschen_und_aufraeumen(self):
         with tempfile.TemporaryDirectory() as tmp:
