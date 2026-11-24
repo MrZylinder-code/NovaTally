@@ -67,8 +67,9 @@ class PsutilSource:
 
 class Tracker:
     def __init__(self, db, source, scan=None, clock=time.time, poll=POLL_SECONDS,
-                 heartbeat=HEARTBEAT_SECONDS, rescan=LIBRARY_RESCAN_SECONDS):
+                 heartbeat=HEARTBEAT_SECONDS, rescan=LIBRARY_RESCAN_SECONDS, icons=None):
         self.db = db
+        self.icons = icons  # art.IconFetcher o. Ä.: request(game_id, exe_pfad) – holt das Spiel-Symbol
         self.source = source
         self.scan = scan or (lambda extra: library.scan(extra))
         self.clock = clock
@@ -150,7 +151,7 @@ class Tracker:
             if self.last_scan is None or now - self.last_scan >= self.rescan:
                 self._load_library(now)
 
-            found = {}
+            found, found_exe = {}, {}
             only = self.db.only_exe_map()  # Spiele, bei denen nur ein bestimmtes Programm zählt
             for pid, name, exe in self.source.snapshot():
                 ck = (pid, exe or name)
@@ -169,6 +170,8 @@ class Tracker:
                     continue  # z. B. LeagueClient.exe, wenn nur das Match zählen soll
                 if m[0] not in found:
                     found[m[0]] = m
+                if exe and m[0] not in found_exe:
+                    found_exe[m[0]] = exe
             if len(self.match_cache) > 5000:
                 self.match_cache.clear()
 
@@ -182,6 +185,11 @@ class Tracker:
                 sid = self.db.start_session(game["id"], now)
                 self.active[key] = {"session_id": sid, "game_id": game["id"], "start": now}
                 log.info("Spiel erkannt: %s", game["name"])
+                if self.icons is not None and not game.get("icon_v"):
+                    try:
+                        self.icons.request(game["id"], found_exe.get(key))
+                    except Exception:  # noqa: BLE001 – Symbole sind nur Schmuck
+                        log.exception("Symbol-Anfrage fehlgeschlagen")
             for key in list(self.active):
                 if key not in found or key in ignored:
                     self._close(key, now)
@@ -215,6 +223,8 @@ class Tracker:
 
     # ------------------------------------------------------------------ Thread
     def start(self):
+        if self.icons is not None and hasattr(self.icons, "backfill"):
+            self.icons.backfill()
         self._thread = threading.Thread(target=self._run, name="Tracker", daemon=True)
         self._thread.start()
 

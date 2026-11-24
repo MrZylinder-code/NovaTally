@@ -90,6 +90,8 @@ def _game_info(g, slots):
         "name": g["name"],
         "appid": g.get("appid"),
         "source": g.get("source"),
+        "icon": g.get("icon_v"),    # Versionen der Logos (art.py) – None: keins vorhanden
+        "cover": g.get("cover_v"),
         "slot": slots.get(gid),
     }
 

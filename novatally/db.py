@@ -76,6 +76,9 @@ class Database:
         if "only_exe" not in cols:
             # Nur dieses Programm (Dateiname, klein) zählt als Spielzeit – NULL: alle Programme im Spielordner
             self.conn.execute("ALTER TABLE games ADD COLUMN only_exe TEXT")
+        for col in ("icon_v", "cover_v"):  # Logo-Versionen (siehe art.py), NULL: kein Bild
+            if col not in cols:
+                self.conn.execute(f"ALTER TABLE games ADD COLUMN {col} INTEGER")
 
     # ------------------------------------------------------------------ intern
     def _all(self, sql, args=()):
@@ -276,13 +279,26 @@ class Database:
                 self.conn.execute("ROLLBACK")
                 raise
 
+    def set_art_version(self, game_id, column, value):
+        if column not in ("icon_v", "cover_v"):
+            raise ValueError(column)
+        self._run(f"UPDATE games SET {column}=? WHERE id=?", (value, game_id))
+
+    def games_without_icon(self):
+        """Gespielte Spiele ohne Programmsymbol, deren EXE sich finden lassen könnte."""
+        return self._all(
+            "SELECT * FROM games g WHERE g.icon_v IS NULL AND g.ignored=0 "
+            "AND (g.key LIKE 'exe:%' OR g.path IS NOT NULL) "
+            "AND EXISTS (SELECT 1 FROM sessions s WHERE s.game_id=g.id) ORDER BY g.id"
+        )
+
     def session_count(self):
         return self._one("SELECT COUNT(*) AS n FROM sessions")["n"]
 
     def all_sessions(self, include_ignored=False):
         """Alle Sitzungen mit Spielinfos, älteste zuerst."""
         sql = (
-            "SELECT s.id, s.game_id, s.start, s.end, s.open, g.name, g.appid, g.source, g.ignored "
+            "SELECT s.id, s.game_id, s.start, s.end, s.open, g.name, g.appid, g.source, g.icon_v, g.cover_v, g.ignored "
             "FROM sessions s JOIN games g ON g.id = s.game_id"
         )
         if not include_ignored:
@@ -291,7 +307,7 @@ class Database:
 
     def recent_sessions(self, limit=300):
         return self._all(
-            "SELECT s.id, s.game_id, s.start, s.end, s.open, g.name, g.appid, g.source "
+            "SELECT s.id, s.game_id, s.start, s.end, s.open, g.name, g.appid, g.source, g.icon_v, g.cover_v "
             "FROM sessions s JOIN games g ON g.id = s.game_id WHERE g.ignored=0 "
             "ORDER BY s.start DESC LIMIT ?",
             (int(limit),),
@@ -305,14 +321,14 @@ class Database:
 
     def open_sessions(self):
         return self._all(
-            "SELECT s.id, s.game_id, s.start, s.end, g.name, g.appid, g.source "
+            "SELECT s.id, s.game_id, s.start, s.end, g.name, g.appid, g.source, g.icon_v, g.cover_v "
             "FROM sessions s JOIN games g ON g.id = s.game_id "
             "WHERE s.open=1 AND g.ignored=0 ORDER BY s.start"
         )
 
     def last_closed_session(self):
         return self._one(
-            "SELECT s.id, s.game_id, s.start, s.end, g.name, g.appid, g.source "
+            "SELECT s.id, s.game_id, s.start, s.end, g.name, g.appid, g.source, g.icon_v, g.cover_v "
             "FROM sessions s JOIN games g ON g.id = s.game_id "
             "WHERE s.open=0 AND g.ignored=0 ORDER BY s.end DESC LIMIT 1"
         )
