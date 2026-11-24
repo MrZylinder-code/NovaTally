@@ -17,10 +17,41 @@ def supported():
     return IS_WINDOWS
 
 
+def installed_exe():
+    """Pfad der per Setup installierten NovaTally.exe – oder None (nicht installiert bzw. Datei fehlt)."""
+    if not IS_WINDOWS:
+        return None
+    import winreg
+
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, SETUP_KEY) as k:
+            folder = winreg.QueryValueEx(k, "InstallDir")[0]
+    except OSError:
+        return None
+    exe = Path(folder) / "NovaTally.exe"
+    return str(exe) if exe.is_file() else None
+
+
+def stray_copy(current_exe, installed):
+    """Läuft eine andere NovaTally.exe als die installierte? Dann den Pfad der installierten, sonst None."""
+    if not installed or not current_exe:
+        return None
+    same = os.path.normcase(os.path.abspath(current_exe)) == os.path.normcase(os.path.abspath(installed))
+    return None if same else installed
+
+
+def autostart_target(frozen, current_exe, installed):
+    """Welche EXE soll mit Windows starten? Gibt es eine Installation, immer die installierte –
+    damit eine zufällig gestartete Kopie (z. B. aus „Downloads“) den Autostart nicht übernimmt."""
+    if frozen:
+        return installed or current_exe
+    return None  # aus dem Quellcode gestartet: siehe command()
+
+
 def command():
     """Befehl, der beim Windows-Start ausgeführt wird."""
     if getattr(sys, "frozen", False):
-        return f'"{sys.executable}" --autostart'
+        return f'"{autostart_target(True, sys.executable, installed_exe())}" --autostart'
     exe = Path(sys.executable)
     pythonw = exe.with_name("pythonw.exe")
     if pythonw.exists():
@@ -99,7 +130,8 @@ def remove_legacy():
 
 
 def repair():
-    """Ist Autostart an, aber zeigt auf einen alten Pfad, wird er auf diesen Start umgestellt."""
+    """Ist Autostart an, aber zeigt auf einen anderen Pfad, wird er korrigiert –
+    auf die installierte Version, falls es eine gibt, sonst auf diesen Start."""
     cur = current()
     if cur and os.path.normcase(cur) != os.path.normcase(command()):
         set_enabled(True)

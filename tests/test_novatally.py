@@ -517,6 +517,26 @@ class FensterTest(unittest.TestCase):
         self.assertIn(focus_existing_window(), (True, False))  # darf nie abstürzen
 
 
+class KopienTest(unittest.TestCase):
+    """Mehrere NovaTally.exe auf dem PC: der Autostart gehört der installierten Version."""
+
+    def test_kopie_erkennen(self):
+        from novatally import autostart
+        inst = os.path.join(SEP + "programme", "NovaTally", "NovaTally.exe")
+        kopie = os.path.join(SEP + "downloads", "NovaTally.exe")
+        self.assertEqual(autostart.stray_copy(kopie, inst), inst)
+        self.assertIsNone(autostart.stray_copy(inst, inst))       # die installierte selbst
+        self.assertIsNone(autostart.stray_copy(kopie, None))      # nichts installiert (portabel)
+
+    def test_autostart_zeigt_immer_auf_installation(self):
+        from novatally import autostart
+        inst = os.path.join(SEP + "programme", "NovaTally", "NovaTally.exe")
+        kopie = os.path.join(SEP + "downloads", "NovaTally.exe")
+        self.assertEqual(autostart.autostart_target(True, kopie, inst), inst)    # Kopie übernimmt NICHT
+        self.assertEqual(autostart.autostart_target(True, inst, inst), inst)
+        self.assertEqual(autostart.autostart_target(True, kopie, None), kopie)   # rein portabel: diese EXE
+
+
 class LegacyTest(unittest.TestCase):
     def test_alte_daten_werden_uebernommen(self):
         from novatally.config import migrate_legacy_db
@@ -708,6 +728,21 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(self.req(f"/api/game/{gid}/only_exe", {"exe": "C:\\x\\game.exe"})[0], 400)
         self.assertEqual(self.req(f"/api/game/{gid}/only_exe", {"exe": None})[1]["only_exe"], None)
         self.assertEqual(self.req("/api/game/999999/only_exe", {"exe": "x.exe"})[0], 404)
+
+    def test_kopie_hinweis_und_wechsel(self):
+        calls = []
+        self.ctx.request_restart = calls.append
+        try:
+            self.assertIsNone(self.req("/api/status")[1]["copy"])
+            self.assertEqual(self.req("/api/copy/switch", {})[0], 409)   # läuft schon die installierte
+            self.ctx.copy_info = {"running": "D:\\Downloads\\NovaTally.exe", "installed": "C:\\Prog\\NovaTally.exe"}
+            self.assertEqual(self.req("/api/status")[1]["copy"]["installed"], "C:\\Prog\\NovaTally.exe")
+            self.assertEqual(self.req("/api/copy/switch", {})[0], 200)
+            time.sleep(0.8)
+            self.assertEqual(calls, [["C:\\Prog\\NovaTally.exe"]])  # beendet sich und startet die installierte
+        finally:
+            self.ctx.copy_info = None
+            self.ctx.request_restart = None
 
     def test_sauber_beenden_per_api(self):
         calls = []

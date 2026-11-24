@@ -115,6 +115,11 @@ Läuft NovaTally aus einem Git-Ordner (`start.bat`), holt derselbe Button den ne
 Gesucht wird nur auf Klick; „Beim Start automatisch suchen“ ist standardmäßig aus. Liegt die EXE in einem Ordner
 ohne Schreibrechte (z. B. `C:\Program Files`), lade die neue Version manuell unter Releases herunter.
 
+**Kann ich mehrere NovaTally.exe auf dem PC haben?**
+Ja, aber es läuft immer nur eine gleichzeitig, und alle teilen dieselben Daten. Ein Update ersetzt nur die Datei,
+die gerade läuft. Am einfachsten: nur die installierte Version behalten und andere Kopien löschen. Startest du
+trotzdem eine Kopie, weist NovaTally oben darauf hin – der Autostart bleibt bei der installierten Version.
+
 **Deinstallieren:** Mit Installer: *Windows-Einstellungen → Apps → NovaTally → Deinstallieren* – der
 Deinstaller beendet NovaTally, entfernt Autostart und Verknüpfungen und fragt, ob auch die Spieldaten weg sollen.
 Portable Version: In den Einstellungen den Autostart ausschalten, NovaTally beenden, die EXE und den Ordner

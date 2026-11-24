@@ -3,6 +3,15 @@
 Alle nennenswerten Änderungen an NovaTally. Für jedes Release übernimmt der Release-Workflow den passenden
 Abschnitt (`## <Version>`) als Beschreibung.
 
+## 1.4.2
+
+- **Mehrere NovaTally.exe auf dem PC**: Ist NovaTally per Setup installiert, zeigt der Autostart jetzt immer auf
+  die installierte Version. Startet man zwischendurch eine andere Kopie (z. B. eine alte EXE aus „Downloads“),
+  übernimmt diese den Autostart nicht mehr. Ein bereits „entführter“ Autostart wird beim nächsten Start
+  automatisch auf die installierte Version zurückgestellt.
+- Läuft eine Kopie statt der installierten Version, zeigt NovaTally oben einen Hinweis mit dem Button
+  *Installierte Version starten*.
+
 ## 1.4.1
 
 - **Update-Neustart repariert**: Nach „Jetzt aktualisieren“ konnte die neue Version im Fenster „Nicht gefunden“

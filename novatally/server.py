@@ -62,6 +62,7 @@ class AppContext:
         self.request_restart = None  # von der App gesetzt: beenden und neue Version starten
         self.show_window = None  # von der App gesetzt: eigenes Fenster zeigen (zweiter Start)
         self.request_quit = None  # von der App gesetzt: sauber beenden (Installer/Deinstaller)
+        self.copy_info = None  # läuft eine Kopie statt der installierten Version? {"running", "installed"}
         self.update_info = None  # Ergebnis der letzten Update-Prüfung
         self._library_cache = None
 
@@ -217,6 +218,7 @@ class Handler(BaseHTTPRequestHandler):
                 "running": running,
                 "last": last,
                 "theme": db.get_setting("theme", "dark"),
+                "copy": ctx.copy_info,
                 "update": ({"latest": ctx.update_info["latest"]}
                            if ctx.update_info and ctx.update_info.get("newer") else None),
             })
@@ -359,6 +361,12 @@ class Handler(BaseHTTPRequestHandler):
         if m:
             if not db.delete_session(int(m.group(1))):
                 raise ApiError(404, "Sitzung nicht gefunden oder läuft noch")
+            return self._json({"ok": True})
+        if path == "/api/copy/switch":
+            # Kopie beenden und die installierte Version starten
+            if not ctx.copy_info or ctx.request_restart is None:
+                raise ApiError(409, "Es läuft bereits die installierte Version.")
+            threading.Timer(0.5, ctx.request_restart, args=([ctx.copy_info["installed"]],)).start()
             return self._json({"ok": True})
         if path == "/api/quit":
             if ctx.request_quit is None:
