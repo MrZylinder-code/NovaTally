@@ -34,5 +34,9 @@ $version = (python -c "import novatally; print(novatally.__version__)").Trim()
 Write-Host "Baue Installer fuer Version $version mit $iscc"
 & $iscc "/Qp" "/DMyAppVersion=$version" "installer\NovaTally.iss"
 if ($LASTEXITCODE -ne 0) { throw "Inno Setup ist mit Fehler $LASTEXITCODE abgebrochen." }
-if (-not (Test-Path "dist\NovaTally-Setup.exe")) { throw "dist\NovaTally-Setup.exe wurde nicht erzeugt." }
-Write-Host "Fertig: $root\dist\NovaTally-Setup.exe ($([math]::Round((Get-Item dist\NovaTally-Setup.exe).Length / 1MB, 1)) MB)"
+& $iscc "/Qp" "/DMyAppVersion=$version" "/DWebSetup" "installer\NovaTally.iss"
+if ($LASTEXITCODE -ne 0) { throw "Inno Setup (Web-Installer) ist mit Fehler $LASTEXITCODE abgebrochen." }
+foreach ($f in @("NovaTally-Setup.exe", "NovaTally-WebSetup.exe")) {
+  if (-not (Test-Path "dist\$f")) { throw "dist\$f wurde nicht erzeugt." }
+  Write-Host "Fertig: $root\dist\$f ($([math]::Round((Get-Item dist\$f).Length / 1MB, 1)) MB)"
+}

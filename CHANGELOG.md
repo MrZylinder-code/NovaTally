@@ -3,6 +3,14 @@
 Alle nennenswerten Änderungen an NovaTally. Für jedes Release übernimmt der Release-Workflow den passenden
 Abschnitt (`## <Version>`) als Beschreibung.
 
+## 1.5.0
+
+- **Web-Installer**: Neu im Release ist `NovaTally-WebSetup.exe` – derselbe Assistent wie der normale Installer,
+  aber nur wenige MB groß. Er lädt beim Installieren immer die **neueste** NovaTally von GitHub und prüft ihre
+  SHA-256-Prüfsumme. Praktisch zum Weitergeben: Auch eine Monate alte Datei installiert die aktuelle Version.
+- Unter *Windows-Einstellungen → Apps* steht jetzt immer die tatsächlich installierte Version – auch nach Updates
+  per Button.
+
 ## 1.4.2
 
 - **Mehrere NovaTally.exe auf dem PC**: Ist NovaTally per Setup installiert, zeigt der Autostart jetzt immer auf

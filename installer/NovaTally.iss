@@ -1,6 +1,7 @@
 ﻿; NovaTally – Installer (Inno Setup 6)
-; Bauen:  ISCC /DMyAppVersion=1.3.0 installer\NovaTally.iss   (erwartet dist\NovaTally.exe)
-; Ergebnis: dist\NovaTally-Setup.exe
+; Bauen:  ISCC /DMyAppVersion=1.3.0 installer\NovaTally.iss              -> dist\NovaTally-Setup.exe (enthält die EXE)
+;         ISCC /DMyAppVersion=1.3.0 /DWebSetup installer\NovaTally.iss   -> dist\NovaTally-WebSetup.exe
+;           (klein; lädt beim Installieren die neueste NovaTally.exe von GitHub und prüft ihre SHA-256-Prüfsumme)
 ;
 ; Standard: Installation nur für den aktuellen Benutzer nach %LOCALAPPDATA%\Programs\NovaTally –
 ; ohne Administratorrechte, und der Update-Button kann die EXE dort selbst ersetzen.
@@ -12,12 +13,17 @@
 #define MyAppExe "NovaTally.exe"
 #define MyAppURL "https://github.com/MrZylinder-code/NovaTally"
 #define WebView2Guid "{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
+#define LatestUrl "https://github.com/MrZylinder-code/NovaTally/releases/latest/download/"
 
 [Setup]
 AppId={{38FBF82F-2686-499D-BAED-00986B4A6DB2}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
+#ifdef WebSetup
+AppVerName={#MyAppName}
+#else
 AppVerName={#MyAppName} {#MyAppVersion}
+#endif
 AppPublisher=MrZylinder-code
 AppPublisherURL={#MyAppURL}
 AppSupportURL={#MyAppURL}/issues
@@ -38,7 +44,11 @@ SetupIconFile=..\novatally\web\icon.ico
 UninstallDisplayIcon={app}\{#MyAppExe}
 UninstallDisplayName={#MyAppName}
 OutputDir=..\dist
+#ifdef WebSetup
+OutputBaseFilename=NovaTally-WebSetup
+#else
 OutputBaseFilename=NovaTally-Setup
+#endif
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
@@ -76,6 +86,12 @@ de.ReqWebView=Microsoft WebView2 (für das NovaTally-Fenster)
 en.ReqWebView=Microsoft WebView2 (for the NovaTally window)
 de.WebViewHint=wird nach der Installation angeboten – ohne öffnet NovaTally im Browser
 en.WebViewHint=will be offered after installation – without it NovaTally opens in your browser
+de.ReqInternet=Internetverbindung (lädt die aktuelle NovaTally-Version, ca. 22 MB)
+en.ReqInternet=Internet connection (downloads the latest NovaTally version, about 22 MB)
+de.DownloadFailed=Die aktuelle NovaTally-Version konnte nicht heruntergeladen werden:%n%n%1%n%nBitte Internetverbindung prüfen und erneut versuchen – oder den vollständigen Installer „NovaTally-Setup.exe“ verwenden.
+en.DownloadFailed=The latest NovaTally version could not be downloaded:%n%n%1%n%nPlease check your internet connection and try again – or use the full installer "NovaTally-Setup.exe".
+de.ShaInvalid=Die Prüfsummen-Datei auf GitHub ist unlesbar.
+en.ShaInvalid=The checksum file on GitHub is unreadable.
 de.ReqDisk=Speicherplatz: ca. 60 MB
 en.ReqDisk=Disk space: about 60 MB
 de.ReqAdmin=Administratorrechte: nicht nötig (Installation nur für dich)
@@ -94,7 +110,12 @@ Name: "autostart"; Description: "{cm:TaskAutostart}"; GroupDescription: "{cm:Tas
 Name: "desktopicon"; Description: "{cm:TaskDesktop}"; GroupDescription: "{cm:TaskGroup}"; Flags: unchecked
 
 [Files]
+#ifdef WebSetup
+; vorher in NextButtonClick heruntergeladen und per SHA-256 geprüft
+Source: "{tmp}\{#MyAppExe}"; DestDir: "{app}"; Flags: external ignoreversion
+#else
 Source: "..\dist\{#MyAppExe}"; DestDir: "{app}"; Flags: ignoreversion
+#endif
 Source: "..\LICENSE"; DestDir: "{app}"; DestName: "LICENSE.txt"; Flags: ignoreversion
 
 [Icons]
@@ -128,6 +149,70 @@ begin
     (RegQueryStringValue(HKCU, 'Software\Microsoft\EdgeUpdate\Clients\{#WebView2Guid}', 'pv', V) and (V <> '') and (V <> '0.0.0.0'));
 end;
 
+#ifdef WebSetup
+var
+  DownloadPage: TDownloadWizardPage;
+
+function OnDownloadProgress(const Url, FileName: String; const Progress, ProgressMax: Int64): Boolean;
+begin
+  Result := True;
+end;
+
+{ SHA-256 aus der .sha256-Datei des Releases lesen (64 Hexzeichen am Anfang) }
+function ReadSha(): String;
+var
+  Raw: AnsiString;
+begin
+  Result := '';
+  if LoadStringFromFile(ExpandConstant('{tmp}\{#MyAppExe}.sha256'), Raw) then
+    Result := Lowercase(Copy(Trim(String(Raw)), 1, 64));
+  if Length(Result) <> 64 then
+    RaiseException(CustomMessage('ShaInvalid'));
+end;
+
+{ Neueste NovaTally.exe laden – Inno Setup prüft die SHA-256-Prüfsumme und bricht bei Abweichung ab }
+procedure DownloadLatest();
+var
+  Sha: String;
+begin
+  if WizardSilent() then
+  begin
+    DownloadTemporaryFile('{#LatestUrl}{#MyAppExe}.sha256', '{#MyAppExe}.sha256', '', nil);
+    Sha := ReadSha();
+    DownloadTemporaryFile('{#LatestUrl}{#MyAppExe}', '{#MyAppExe}', Sha, nil);
+  end
+  else
+  begin
+    DownloadPage.Clear;
+    DownloadPage.Add('{#LatestUrl}{#MyAppExe}.sha256', '{#MyAppExe}.sha256', '');
+    DownloadPage.Show;
+    try
+      DownloadPage.Download;
+      Sha := ReadSha();
+      DownloadPage.Clear;
+      DownloadPage.Add('{#LatestUrl}{#MyAppExe}', '{#MyAppExe}', Sha);
+      DownloadPage.Download;
+    finally
+      DownloadPage.Hide;
+    end;
+  end;
+end;
+
+function NextButtonClick(CurPageID: Integer): Boolean;
+begin
+  Result := True;
+  if CurPageID = wpReady then
+  begin
+    try
+      DownloadLatest();
+    except
+      SuppressibleMsgBox(FmtMessage(CustomMessage('DownloadFailed'), [GetExceptionMessage()]), mbCriticalError, MB_OK, IDOK);
+      Result := False;
+    end;
+  end;
+end;
+#endif
+
 function Mark(Ok: Boolean): String;
 begin
   if Ok then Result := '✓  ' else Result := '✗  ';
@@ -149,10 +234,16 @@ begin
   else
     Text := Text + Mark(False) + CustomMessage('ReqWebView') + ' – ' + CustomMessage('WebViewHint') + #13#10;
   Text := Text +
+#ifdef WebSetup
+    Mark(True) + CustomMessage('ReqInternet') + #13#10 +
+#endif
     Mark(True) + CustomMessage('ReqDisk') + #13#10 +
     Mark(True) + CustomMessage('ReqAdmin') + #13#10#13#10 +
     CustomMessage('ReqData');
   Page := CreateOutputMsgMemoPage(wpWelcome, CustomMessage('CheckTitle'), CustomMessage('CheckDesc'), '', Text);
+#ifdef WebSetup
+  DownloadPage := CreateDownloadPage(SetupMessage(msgWizardPreparing), SetupMessage(msgPreparingDesc), @OnDownloadProgress);
+#endif
 end;
 
 { Laufendes NovaTally sauber beenden (speichert die aktuelle Sitzung), notfalls hart }
@@ -170,8 +261,18 @@ end;
 
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 begin
-  StopRunningApp();
   Result := '';
+#ifdef WebSetup
+  { Rückfall, falls der Download noch nicht passiert ist (z. B. bei stiller Installation) }
+  if not FileExists(ExpandConstant('{tmp}\{#MyAppExe}')) then
+  try
+    DownloadLatest();
+  except
+    Result := FmtMessage(CustomMessage('DownloadFailed'), [GetExceptionMessage()]);
+    Exit;
+  end;
+#endif
+  StopRunningApp();
 end;
 
 procedure InstallWebView2();

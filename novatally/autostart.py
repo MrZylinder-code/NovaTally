@@ -32,6 +32,30 @@ def installed_exe():
     return str(exe) if exe.is_file() else None
 
 
+UNINSTALL_KEY = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\{38FBF82F-2686-499D-BAED-00986B4A6DB2}_is1"
+
+
+def sync_installed_version(version):
+    """Versionsnummer unter „Apps & Features“ aktuell halten – nach Updates per Button oder Web-Installer
+    steht dort sonst noch die Version, mit der ursprünglich installiert wurde. True, wenn geändert."""
+    if not IS_WINDOWS:
+        return False
+    import winreg
+
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, UNINSTALL_KEY, 0,
+                            winreg.KEY_READ | winreg.KEY_SET_VALUE) as k:
+            try:
+                if winreg.QueryValueEx(k, "DisplayVersion")[0] == version:
+                    return False
+            except OSError:
+                pass
+            winreg.SetValueEx(k, "DisplayVersion", 0, winreg.REG_SZ, version)
+            return True
+    except OSError:  # nicht per Setup für diesen Benutzer installiert
+        return False
+
+
 def stray_copy(current_exe, installed):
     """Läuft eine andere NovaTally.exe als die installierte? Dann den Pfad der installierten, sonst None."""
     if not installed or not current_exe:
