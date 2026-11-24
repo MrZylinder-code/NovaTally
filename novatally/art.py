@@ -245,7 +245,13 @@ def read(db, game_id, kind):
 
 class IconFetcher:
     """Liest Programmsymbole im Hintergrund – der Tracker wartet nie darauf.
-    Pro Spiel und Programmlauf höchstens ein Versuch."""
+
+    - Beim Spielstart (mit dem Pfad des laufenden Programms): höchstens ein Versuch pro Spiel und Programmlauf.
+    - Nachholen für schon gespielte Spiele (Suche im Spielordner): nur EINMAL pro Spiel überhaupt –
+      gemerkt in der Einstellung `icon_backfill`, damit nicht jeder Windows-Start die Platte durchsucht.
+    """
+
+    BACKFILL_SETTING = "icon_backfill"
 
     def __init__(self, db, extract=exe_icon_rgba, background=True):
         self.db = db
@@ -255,7 +261,7 @@ class IconFetcher:
         self.lock = threading.Lock()
 
     def request(self, game_id, exe_path):
-        """Symbol für ein Spiel holen, falls es noch keines hat (exe_path darf None sein)."""
+        """Symbol für ein Spiel holen, falls es noch keines hat (exe_path: Pfad des laufenden Programms)."""
         with self.lock:
             if game_id in self.tried:
                 return
@@ -266,10 +272,18 @@ class IconFetcher:
             self._fetch(game_id, exe_path)
 
     def backfill(self):
-        """Für schon gespielte Spiele ohne Symbol die EXE im Spielordner suchen."""
+        """Für schon gespielte Spiele ohne Symbol die EXE im Spielordner suchen (einmal pro Spiel)."""
         def run():
-            for g in self.db.games_without_icon():
-                self.request(g["id"], None)
+            try:
+                done = set(self.db.get_setting(self.BACKFILL_SETTING, []) or [])
+                todo = [g for g in self.db.games_without_icon() if g["id"] not in done]
+                for g in todo:
+                    self._fetch(g["id"], None)
+                    done.add(g["id"])
+                if todo:
+                    self.db.set_setting(self.BACKFILL_SETTING, sorted(done))
+            except Exception:  # noqa: BLE001 – Symbole sind nur Schmuck
+                log.exception("Symbole konnten nicht nachgeholt werden")
         if self.background:
             threading.Thread(target=run, name="Icon-Backfill", daemon=True).start()
         else:

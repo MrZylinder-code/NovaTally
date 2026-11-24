@@ -51,6 +51,42 @@ def ts(y, mo, d, h=0, mi=0):
     return datetime(y, mo, d, h, mi).timestamp()
 
 
+class ProzessquelleTest(unittest.TestCase):
+    def test_gleichzeitige_abfragen(self):
+        """Tracker und Einstellungen („Programm hinzufügen“) fragen gleichzeitig ab – ohne KeyError."""
+        import random
+        import threading
+        import types
+        from unittest import mock
+
+        class Proc:
+            def __init__(self, pid):
+                self.info = {"pid": pid, "name": f"p{pid}.exe"}
+
+            def exe(self):
+                return f"C:\\x\\p{self.info['pid']}.exe"
+
+        fake = types.ModuleType("psutil")
+        fake.process_iter = lambda attrs: [Proc(pid) for pid in random.sample(range(400), 200)]
+        with mock.patch.dict(sys.modules, {"psutil": fake}):
+            from novatally.tracker import PsutilSource
+            src = PsutilSource()
+        errors = []
+
+        def run():
+            for _ in range(800):
+                try:
+                    src.snapshot()
+                except Exception as e:  # noqa: BLE001
+                    errors.append(e)
+        threads = [threading.Thread(target=run) for _ in range(3)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        self.assertEqual(errors, [])
+
+
 class TrackerTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()

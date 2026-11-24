@@ -164,6 +164,30 @@ class SymbolTest(unittest.TestCase):
         self.assertEqual(sorted(self.calls), sorted([match, os.path.normcase(os.path.normpath(manual_exe))]))
         self.assertEqual(self.db.games_without_icon(), [])
 
+    def test_ordnersuche_nur_einmal_pro_spiel(self):
+        """Ohne Treffer wird der Spielordner nicht bei jedem Windows-Start erneut durchsucht –
+        beim echten Spielstart wird es aber trotzdem noch versucht."""
+        folder = str(self.root / "Spiel")
+        exe = self.make_exe("Spiel", "bin", "spiel.exe")
+        g = self.db.get_or_create_game("folder:spiel", "Spiel", "custom", None, folder)
+        self.db.record_exe(g["key"], "spiel.exe", "spiel.exe", 1)
+        sid = self.db.start_session(g["id"], 0)
+        self.db.end_session(sid, 3600)
+        calls = []
+
+        def none(path):
+            calls.append(path)
+            return None                                   # z. B. EXE ohne Symbol
+        art.IconFetcher(self.db, extract=none, background=False).backfill()
+        self.assertEqual(calls, [exe])
+        art.IconFetcher(self.db, extract=none, background=False).backfill()   # nächster Programmstart
+        self.assertEqual(calls, [exe])                    # nicht noch einmal gesucht
+        fetcher = art.IconFetcher(self.db, extract=self.extract, background=False)
+        fetcher.backfill()
+        fetcher.request(g["id"], exe)                     # Spiel läuft: direkter Versuch klappt
+        self.assertEqual(self.calls, [exe])
+        self.assertTrue(self.db.game(g["id"])["icon_v"])
+
     def test_alte_datenbank_bekommt_spalten(self):
         path = self.root / "alt.db"
         con = sqlite3.connect(path)

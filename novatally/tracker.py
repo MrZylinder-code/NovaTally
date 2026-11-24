@@ -40,8 +40,15 @@ class PsutilSource:
 
         self.psutil = psutil
         self._exe_cache = {}  # pid -> (name, exe)
+        # Tracker und Einstellungen („Programm hinzufügen“) fragen gleichzeitig ab – der Zwischenspeicher
+        # darf nur von einem Thread zur Zeit verändert werden.
+        self._lock = threading.Lock()
 
     def snapshot(self):
+        with self._lock:
+            return self._snapshot()
+
+    def _snapshot(self):
         out, alive = [], set()
         for p in self.psutil.process_iter(["pid", "name"]):
             try:

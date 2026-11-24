@@ -466,7 +466,9 @@ function renderNowCard(el) {
   const s = state.status;
   if (!s) return;
   const run = s.running && s.running[0];
-  const key = run ? `run:${run.session_id}:${run.name}` : `last:${s.last ? s.last.id + ':' + s.last.end + ':' + s.last.name : 'none'}`;
+  const art = g => (g ? `:${g.icon || ''}:${g.cover || ''}` : '');  // neues Symbol/Bild -> Karte neu zeichnen
+  const key = run ? `run:${run.session_id}:${run.name}${art(run)}`
+    : `last:${s.last ? s.last.id + ':' + s.last.end + ':' + s.last.name + art(s.last) : 'none'}`;
   if (el.dataset.key === key) return;  // nichts geändert -> Bilder nicht neu laden
   el.dataset.key = key;
   if (run) {

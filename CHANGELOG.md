@@ -3,6 +3,18 @@
 Alle nennenswerten Änderungen an NovaTally. Für jedes Release übernimmt der Release-Workflow den passenden
 Abschnitt (`## <Version>`) als Beschreibung.
 
+## 1.6.1
+
+Stabilität (Ergebnis einer Durchsicht des gesamten Codes):
+
+- War unter *Einstellungen → Programm hinzufügen* die Prozessliste offen, konnten Spielerkennung und Liste
+  gleichzeitig auf denselben Zwischenspeicher zugreifen. Dann fiel ab und zu ein Erkennungsdurchlauf aus oder die
+  Liste meldete einen Fehler. Behoben.
+- Die Suche nach Spiel-Symbolen im Spielordner läuft jetzt nur noch **einmal pro Spiel** – nicht mehr bei jedem
+  Windows-Start (schont vor allem Festplatten). Beim nächsten Spielstart wird das Symbol trotzdem direkt aus dem
+  laufenden Programm gelesen.
+- Ein neu gelesenes Symbol oder eigenes Bild erscheint sofort in der Karte „Jetzt im Spiel“.
+
 ## 1.6.0
 
 - **Logos für alle Spiele**: Spiele ohne Steam-Cover (z. B. Path of Exile direkt von Grinding Gear Games,
