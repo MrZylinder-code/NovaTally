@@ -3,6 +3,17 @@
 Alle nennenswerten Änderungen an NovaTally. Für jedes Release übernimmt der Release-Workflow den passenden
 Abschnitt (`## <Version>`) als Beschreibung.
 
+## 1.6.0
+
+- **Logos für alle Spiele**: Spiele ohne Steam-Cover (z. B. Path of Exile direkt von Grinding Gear Games,
+  League of Legends, Epic- oder Xbox-Spiele) zeigen jetzt ihr Programmsymbol statt nur Buchstaben. NovaTally liest
+  es beim nächsten Spielstart aus der Spiel-EXE – für schon gespielte Spiele sucht es die EXE einmalig im
+  Spielordner. Bei League of Legends wird das Symbol des Spiels genommen, nicht das des Clients.
+- **Eigenes Bild pro Spiel**: Auf der Spielseite gibt es *Bild ändern* – wähle ein PNG, JPEG, WebP oder GIF
+  (große Bilder werden automatisch verkleinert). *Eigenes Bild entfernen* stellt den Ausgangszustand wieder her.
+  Reihenfolge: eigenes Bild → Steam-Cover → Programmsymbol → Buchstaben.
+- Bilder liegen lokal im Datenordner unter `art\`; nichts wird hochgeladen.
+
 ## 1.5.0
 
 - **Web-Installer**: Neu im Release ist `NovaTally-WebSetup.exe` – derselbe Assistent wie der normale Installer,

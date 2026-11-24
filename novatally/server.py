@@ -17,7 +17,7 @@ from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
-from . import APP_NAME, __version__, autostart, library, stats, updater
+from . import APP_NAME, __version__, art, autostart, library, stats, updater
 from .config import IS_WINDOWS, resource_dir
 from .db import norm_path
 
@@ -33,7 +33,7 @@ STATIC = {
 }
 
 CSP = (
-    "default-src 'self'; img-src 'self' data: https://cdn.cloudflare.steamstatic.com; "
+    "default-src 'self'; img-src 'self' data: blob: https://cdn.cloudflare.steamstatic.com; "
     "style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; "
     "frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
 )
@@ -121,8 +121,9 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "no-referrer")
         self.send_header("Content-Security-Policy", CSP)
-        self.send_header("Cache-Control", "no-store")
-        for k, v in (extra or {}).items():
+        extra = dict(extra or {})
+        self.send_header("Cache-Control", extra.pop("Cache-Control", "no-store"))
+        for k, v in extra.items():
             self.send_header(k, v)
         self.end_headers()
         if self.command != "HEAD":
@@ -153,6 +154,8 @@ class Handler(BaseHTTPRequestHandler):
         try:
             if url.path.startswith("/api/"):
                 self._api_get(url.path, parse_qs(url.query))
+            elif url.path.startswith("/art/"):
+                self._art(url.path)
             else:
                 self._static(url.path)
         except ApiError as e:
@@ -169,6 +172,9 @@ class Handler(BaseHTTPRequestHandler):
         url = urlparse(self.path)
         try:
             length = int(self.headers.get("Content-Length") or 0)
+            m = re.fullmatch(r"/api/game/(\d+)/cover", url.path)
+            if m:
+                return self._upload_cover(int(m.group(1)), length)
             if length > 65536:
                 raise ApiError(413, "Anfrage zu groß")
             raw = self.rfile.read(length) if length else b"{}"
@@ -198,6 +204,33 @@ class Handler(BaseHTTPRequestHandler):
             self._send(404, "Nicht gefunden", "text/plain; charset=utf-8")
             return
         self._send(200, data, ctype)
+
+    def _art(self, path):
+        """Spiel-Logos für <img> – ohne Pflicht-Header, aber nur für die eigene Seite (CORP)."""
+        m = re.fullmatch(r"/art/(\d+)/(icon|cover)", path)
+        found = art.read(self.server.ctx.db, int(m.group(1)), m.group(2)) if m else None
+        if not found:
+            self._send(404, "Nicht gefunden", "text/plain; charset=utf-8")
+            return
+        data, ctype = found
+        # Die URL enthält die Version (?v=…) – der Browser darf das Bild also dauerhaft behalten
+        self._send(200, data, ctype, {"Cache-Control": "private, max-age=31536000, immutable",
+                                       "Cross-Origin-Resource-Policy": "same-origin"})
+
+    def _upload_cover(self, gid, length):
+        db = self.server.ctx.db
+        if not db.game(gid):
+            raise ApiError(404, "Spiel nicht gefunden")
+        if length <= 0:
+            raise ApiError(400, "Kein Bild übertragen")
+        if length > art.MAX_UPLOAD:
+            raise ApiError(413, "Das Bild ist zu groß (max. 10 MB).")
+        data = self.rfile.read(length)
+        try:
+            art.save_cover(db, gid, data)
+        except ValueError as e:
+            raise ApiError(400, str(e))
+        return self._json({"ok": True, "cover": db.game(gid)["cover_v"]})
 
     # -------------------------------------------------------------------- GET
     def _api_get(self, path, query):
@@ -306,7 +339,8 @@ class Handler(BaseHTTPRequestHandler):
             "update_mode": updater.mode(),
             "releases_url": updater.RELEASES_URL,
             "library_total": len(entries),
-            "ignored": [{"id": g["id"], "name": g["name"], "appid": g["appid"], "source": g["source"]}
+            "ignored": [{"id": g["id"], "name": g["name"], "appid": g["appid"], "source": g["source"],
+                         "icon": g["icon_v"], "cover": g["cover_v"]}
                         for g in db.ignored_games()],
         }
 
@@ -357,6 +391,13 @@ class Handler(BaseHTTPRequestHandler):
             if ctx.tracker is not None:
                 ctx.tracker.tick()  # sofort anwenden (z. B. laufende Client-Sitzung beenden)
             return self._json({"ok": True, "only_exe": (exe or "").lower() or None})
+        m = re.fullmatch(r"/api/game/(\d+)/cover/remove", path)
+        if m:
+            gid = int(m.group(1))
+            if not db.game(gid):
+                raise ApiError(404, "Spiel nicht gefunden")
+            art.remove_cover(db, gid)
+            return self._json({"ok": True})
         m = re.fullmatch(r"/api/session/(\d+)/delete", path)
         if m:
             if not db.delete_session(int(m.group(1))):

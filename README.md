@@ -52,7 +52,7 @@ Beim ersten Start öffnet sich das Fenster, und NovaTally trägt sich in den Win
 | Ansicht | Inhalt |
 |---|---|
 | **Übersicht** | „Jetzt im Spiel“ mit Live-Timer, Heute/Woche/Monat/Gesamt, Serien, Verlauf (7 T / 30 T / 90 T / 1 J / Gesamt), Top-Spiele, „Wann spielst du?“, Aktivitäts-Kalender |
-| **Spiele** | Kacheln mit Cover, Suche und Sortierung. Ein Klick öffnet die Detailseite mit Kennzahlen, Monatsverlauf und allen Sitzungen (einzeln löschbar). Dort kannst du das Spiel auch umbenennen oder ausblenden |
+| **Spiele** | Kacheln mit Cover (Steam-Cover, sonst das Symbol der Spiel-EXE oder ein eigenes Bild), Suche und Sortierung. Ein Klick öffnet die Detailseite mit Kennzahlen, Monatsverlauf und allen Sitzungen (einzeln löschbar). Dort kannst du das Spiel auch umbenennen, ihm ein eigenes Bild geben oder es ausblenden |
 | **Verlauf** | Alle Sitzungen nach Tagen mit Tagessumme |
 | **Einstellungen** | Autostart, Pause, Design (System/Dunkel/Hell), Spiel manuell hinzufügen, eigene Spieleordner, ausgeschlossene Spiele, CSV-Export, Datenordner, erkannte Bibliotheken |
 

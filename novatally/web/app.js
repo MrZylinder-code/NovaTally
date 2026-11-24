@@ -108,27 +108,75 @@ function placeholderStyle(name) {
   const h = hashStr(name) % 360, h2 = (h + 50) % 360;
   return `background: linear-gradient(135deg, hsl(${h} 62% 46%), hsl(${h2} 58% 24%))`;
 }
-function coverUrl(game) {
+function steamUrl(game) {
   return game && game.appid && /^\d+$/.test(String(game.appid))
     ? `https://cdn.cloudflare.steamstatic.com/steam/apps/${game.appid}/header.jpg` : null;
 }
+/** Bildebenen von unten nach oben: Buchstaben < EXE-Symbol < Steam-Cover – oder ein eigenes Bild.
+ *  Jede Ebene verschwindet, wenn ihr Bild nicht lädt; dann ist die darunter sichtbar. */
+function artLayers(game, withIcon = true) {
+  if (!game) return '';
+  if (game.cover) return `<img src="/art/${game.id}/cover?v=${game.cover}" alt="" data-cover style="position:absolute;inset:0">`;
+  let html = '';
+  if (game.icon && withIcon) {
+    html += `<div class="icon-layer" data-cover-layer style="${placeholderStyle(game.name)}">` +
+      `<img src="/art/${game.id}/icon?v=${game.icon}" alt="" data-cover></div>`;
+  }
+  const url = steamUrl(game);
+  if (url) html += `<img src="${url}" alt="" loading="lazy" data-cover style="position:absolute;inset:0">`;
+  return html;
+}
 /** Cover mit Platzhalter darunter – fällt das Bild aus, bleibt der Platzhalter sichtbar. */
 function coverHtml(game, cls = '') {
-  const url = coverUrl(game);
   return `<div class="cover ${cls}"><div class="ph" style="${placeholderStyle(game.name)}">${esc(initials(game.name))}</div>` +
-    (url ? `<img src="${url}" alt="" loading="lazy" data-cover style="position:absolute;inset:0">` : '') + '</div>';
+    artLayers(game) + '</div>';
 }
+/** Unscharfer Hintergrund: Ein Symbol wird groß und verwischt zur Farbfläche. */
 function bgHtml(game) {
-  const url = coverUrl(game);
-  return `<div class="bg"><div class="ph" style="${placeholderStyle(game.name)}"></div>` +
-    (url ? `<img src="${url}" alt="" data-cover style="position:absolute;inset:0">` : '') + '</div>';
+  let layers = artLayers(game, false);
+  if (!game.cover && game.icon) {
+    layers = `<img src="/art/${game.id}/icon?v=${game.icon}" alt="" data-cover style="position:absolute;inset:0">` + layers;
+  }
+  return `<div class="bg"><div class="ph" style="${placeholderStyle(game.name)}"></div>${layers}</div>`;
 }
 function wireCovers(root = document) {
   for (const img of $$('img[data-cover]', root)) {
-    const fail = () => img.remove();
+    const fail = () => (img.closest('[data-cover-layer]') || img).remove();
     if (img.complete && img.naturalWidth === 0 && img.src) { fail(); continue; }
     img.addEventListener('error', fail, { once: true });
   }
+}
+
+/** Gewähltes Bild verkleinern (max. 1280 px), damit Upload und Anzeige leicht bleiben. */
+async function shrinkImage(file) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((ok, bad) => {
+      const i = new Image();
+      i.onload = () => ok(i);
+      i.onerror = () => bad(new Error('Das Bild konnte nicht gelesen werden.'));
+      i.src = url;
+    });
+    const scale = Math.min(1, 1280 / Math.max(img.naturalWidth, img.naturalHeight));
+    if (scale === 1 && file.size <= 4 * 1024 * 1024 && /^image\/(png|jpeg|webp|gif)$/.test(file.type)) return file;
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(img.naturalWidth * scale));
+    c.height = Math.max(1, Math.round(img.naturalHeight * scale));
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    const type = file.type === 'image/jpeg' ? 'image/jpeg' : 'image/png';  // PNG behält Transparenz
+    return await new Promise((ok, bad) => c.toBlob(b => b ? ok(b) : bad(new Error('Bild konnte nicht umgewandelt werden.')), type, 0.9));
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+async function uploadCover(gameId, file) {
+  const blob = await shrinkImage(file);
+  const res = await fetch(`/api/game/${gameId}/cover`, {
+    method: 'POST', headers: { 'X-NovaTally': '1', 'Content-Type': blob.type || 'application/octet-stream' }, body: blob,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || ('Fehler ' + res.status));
+  return data;
 }
 
 /* ================================================================ Tooltip */
@@ -587,6 +635,9 @@ async function renderGame(id) {
         <div class="muted">${esc(fmtDur(g.seconds))} gespielt · zuletzt ${esc(relDay(g.last))}</div>
         <div class="detail-actions">
           <button class="btn small" id="btn-rename">Umbenennen</button>
+          <button class="btn small" id="btn-cover">Bild ändern</button>
+          ${g.cover ? '<button class="btn small" id="btn-cover-reset">Eigenes Bild entfernen</button>' : ''}
+          <input type="file" id="cover-file" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
           <button class="btn small" id="btn-ignore">${g.ignored ? 'Wieder erfassen' : 'Ausschließen'}</button>
         </div>
       </div></div></div>
@@ -621,6 +672,17 @@ async function renderGame(id) {
   $('#btn-rename').addEventListener('click', async () => {
     const name = await openModal({ title: 'Spiel umbenennen', value: g.name, okLabel: 'Speichern' });
     if (name && name !== g.name) { await act(() => api(`game/${g.id}/rename`, { name }), 'Umbenannt'); route(); }
+  });
+  const fileInput = $('#cover-file');
+  $('#btn-cover').addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', async () => {
+    const file = fileInput.files && fileInput.files[0];
+    if (!file) return;
+    if (await act(() => uploadCover(g.id, file), 'Bild gespeichert')) route();
+  });
+  const resetBtn = $('#btn-cover-reset');
+  if (resetBtn) resetBtn.addEventListener('click', async () => {
+    if (await act(() => api(`game/${g.id}/cover/remove`, {}), 'Eigenes Bild entfernt')) route();
   });
   $('#btn-ignore').addEventListener('click', async () => {
     if (!g.ignored) {

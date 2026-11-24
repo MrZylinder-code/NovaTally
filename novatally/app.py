@@ -325,10 +325,11 @@ def main(argv=None):
         note = "Demo-Modus: Es wird nichts erfasst."
     else:
         try:
+            from .art import IconFetcher
             from .tracker import PsutilSource, Tracker
 
             source = PsutilSource()
-            tracker = Tracker(db, source)
+            tracker = Tracker(db, source, icons=IconFetcher(db))
         except ImportError:
             note = "psutil ist nicht installiert – die Spielerkennung ist deaktiviert."
             log.warning(note)
