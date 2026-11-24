@@ -118,7 +118,17 @@ h1, h2, h3 { margin: 0; font-weight: 650; letter-spacing: -.01em; }
 .sidebar-status.off .dot { background: var(--danger); }
 .sidebar-status.demo .dot { background: var(--accent-2); }
 
+.main-wrap { min-width: 0; }
 .main { padding: 28px 36px 48px; outline: none; min-width: 0; }
+.copy-banner {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  margin: 16px 36px 0; padding: 12px 16px; border-radius: 12px; font-size: 13px; color: var(--text-2);
+  background: color-mix(in srgb, #fab219 12%, var(--card)); border: 1px solid color-mix(in srgb, #fab219 45%, transparent);
+}
+.copy-banner[hidden] { display: none; }
+.copy-banner b { color: var(--text); }
+.copy-banner .path { font-family: Consolas, "Cascadia Mono", ui-monospace, monospace; font-size: 12px; word-break: break-all; color: var(--text); }
+.copy-banner .btn { flex: none; }
 .page { max-width: 1320px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
 .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .page-head h1 { font-size: 26px; }
@@ -406,6 +416,7 @@ h1, h2, h3 { margin: 0; font-weight: 650; letter-spacing: -.01em; }
 }
 @media (max-width: 1180px) {
   .main { padding: 22px 22px 40px; }
+  .copy-banner { margin: 16px 22px 0; }
   .hero { grid-template-columns: minmax(0, 1fr); }
   .hero .kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .kpi .value { font-size: 22px; }

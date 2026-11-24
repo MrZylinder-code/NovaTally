@@ -310,6 +310,13 @@ def main(argv=None):
         if closed:
             log.info("%d offene Sitzung(en) vom letzten Lauf beim letzten Heartbeat beendet", closed)
 
+    # ---- Läuft eine Kopie statt der installierten Version?
+    if getattr(sys, "frozen", False):
+        other = autostart.stray_copy(sys.executable, autostart.installed_exe())
+        if other:
+            ctx.copy_info = {"running": sys.executable, "installed": other}
+            log.info("Es läuft eine Kopie (%s) – installiert ist %s", sys.executable, other)
+
     # ---- Tracker
     tracker, note, source = None, None, None
     if args.demo:

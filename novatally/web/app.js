@@ -364,6 +364,7 @@ async function refreshStatus() {
     el.className = 'sidebar-status ' + (s.demo ? 'demo' : !s.tracking ? 'off' : s.paused ? 'paused' : 'on');
     $('.label', el).textContent = s.demo ? 'Demo-Modus' : !s.tracking ? 'Erkennung aus' : s.paused ? 'Tracking pausiert' : 'Tracking aktiv';
     el.title = s.tracker_note || '';
+    renderCopyBanner(s.copy);
     const upd = $('#sidebar-update');
     upd.hidden = !s.update;
     if (s.update) upd.textContent = /^\d/.test(s.update.latest) ? `Update auf ${s.update.latest} verfügbar` : `Update verfügbar: ${s.update.latest}`;
@@ -833,6 +834,22 @@ async function renderSettings() {
       setTimeout(() => URL.revokeObjectURL(a.href), 5000);
       toast('CSV-Datei wird heruntergeladen');
     } catch (e) { toast(e.message, true); }
+  });
+}
+
+/* ================================================================ Kopie statt Installation */
+function renderCopyBanner(copy) {
+  const el = $('#copy-banner');
+  if (!copy) { el.hidden = true; return; }
+  if (!el.hidden && el.dataset.path === copy.running) return;
+  el.dataset.path = copy.running;
+  el.innerHTML = `<div><b>Du benutzt eine Kopie von NovaTally</b> aus <span class="path">${esc(copy.running)}</span>.
+    Installiert ist NovaTally unter <span class="path">${esc(copy.installed)}</span> – diese Version startet auch mit Windows.</div>
+    <button class="btn primary small" id="copy-switch">Installierte Version starten</button>`;
+  el.hidden = false;
+  $('#copy-switch').addEventListener('click', async () => {
+    const r = await act(() => api('copy/switch', {}), 'Wechsle zur installierten Version …');
+    if (r) setTimeout(() => location.reload(), 6000);
   });
 }
 
