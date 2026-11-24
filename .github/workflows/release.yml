@@ -53,6 +53,10 @@ jobs:
         shell: pwsh
         run: ./tools/installer_test.ps1
 
+      - name: Web-Installer testen
+        shell: pwsh
+        run: ./tools/websetup_test.ps1
+
       - name: Prüfsumme und Release-Text erstellen
         shell: pwsh
         run: |
@@ -60,6 +64,8 @@ jobs:
           "$hash  NovaTally.exe" | Out-File -Encoding ascii dist\NovaTally.exe.sha256
           $setupHash = (Get-FileHash dist\NovaTally-Setup.exe -Algorithm SHA256).Hash.ToLower()
           "$setupHash  NovaTally-Setup.exe" | Out-File -Encoding ascii dist\NovaTally-Setup.exe.sha256
+          $webHash = (Get-FileHash dist\NovaTally-WebSetup.exe -Algorithm SHA256).Hash.ToLower()
+          "$webHash  NovaTally-WebSetup.exe" | Out-File -Encoding ascii dist\NovaTally-WebSetup.exe.sha256
           $version = "${{ github.ref_name }}".TrimStart("v")
           $changelog = Get-Content CHANGELOG.md -Raw -Encoding utf8
           $m = [regex]::Match($changelog, "(?ms)^## $([regex]::Escape($version))\s*\r?\n(.*?)(?=^## |\z)")
@@ -70,6 +76,8 @@ jobs:
           ### Installation
           - **Empfohlen: NovaTally-Setup.exe** herunterladen und ausführen. Der Installer prüft die Voraussetzungen,
             lässt dich den Ordner wählen und legt Startmenü-Eintrag und Autostart an. Keine Administratorrechte nötig.
+          - **Web-Installer:** NovaTally-WebSetup.exe ist nur wenige MB groß und lädt beim Installieren immer die
+            neueste Version (Internet nötig) – praktisch zum Weitergeben der Datei.
           - **Ohne Installation:** NovaTally.exe an einen festen Ort legen (z. B. ``C:\Tools``) und starten.
 
           Warnt Windows SmartScreen, auf *Weitere Informationen* → *Trotzdem ausführen* klicken
@@ -78,6 +86,7 @@ jobs:
 
           ### Prüfsummen (SHA-256)
           - NovaTally-Setup.exe: ``$setupHash``
+          - NovaTally-WebSetup.exe: ``$webHash``
           - NovaTally.exe: ``$hash``
 
           Prüfen in PowerShell: ``Get-FileHash .\NovaTally.exe -Algorithm SHA256``
@@ -89,7 +98,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${{ github.ref_name }}" dist\NovaTally-Setup.exe dist\NovaTally-Setup.exe.sha256 dist\NovaTally.exe dist\NovaTally.exe.sha256 `
+          gh release create "${{ github.ref_name }}" dist\NovaTally-Setup.exe dist\NovaTally-Setup.exe.sha256 dist\NovaTally-WebSetup.exe dist\NovaTally-WebSetup.exe.sha256 dist\NovaTally.exe dist\NovaTally.exe.sha256 `
             --title "NovaTally ${{ github.ref_name }}" `
             --notes-file dist\release-notes.md `
             --verify-tag

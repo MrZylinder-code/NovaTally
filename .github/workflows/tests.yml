@@ -71,6 +71,10 @@ jobs:
         shell: pwsh
         run: ./tools/installer_test.ps1
 
+      - name: Web-Installer testen (lädt die neueste Version von GitHub)
+        shell: pwsh
+        run: ./tools/websetup_test.ps1
+
       - name: Eigenes Fenster prüfen (informativ)
         continue-on-error: true
         shell: pwsh
@@ -84,4 +88,5 @@ jobs:
           path: |
             dist/NovaTally.exe
             dist/NovaTally-Setup.exe
+            dist/NovaTally-WebSetup.exe
           retention-days: 7

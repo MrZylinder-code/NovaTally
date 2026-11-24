@@ -23,6 +23,8 @@ Unter [Releases](https://github.com/MrZylinder-code/NovaTally/releases/latest) g
   - Startmenü-Eintrag, auf Wunsch Desktop-Verknüpfung und Autostart anlegt,
   - fehlendes WebView2 direkt bei Microsoft nachinstalliert,
   - NovaTally unter *Einstellungen → Apps* sauber deinstallierbar macht (deine Spieldaten bleiben auf Wunsch erhalten).
+- **`NovaTally-WebSetup.exe`** – derselbe Assistent, aber nur wenige MB groß: lädt beim Installieren immer die
+  neueste Version von GitHub (Internet nötig) und prüft deren Prüfsumme. Praktisch, wenn du die Datei weitergibst.
 - **`NovaTally.exe` (portabel)** – ohne Installation: an einen festen Ort legen (z. B. `C:\Tools`) und starten.
 
 Python wird in beiden Fällen nicht gebraucht.

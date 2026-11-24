@@ -316,6 +316,8 @@ def main(argv=None):
         if other:
             ctx.copy_info = {"running": sys.executable, "installed": other}
             log.info("Es läuft eine Kopie (%s) – installiert ist %s", sys.executable, other)
+        elif autostart.sync_installed_version(__version__):
+            log.info("Version unter „Apps & Features“ auf %s aktualisiert", __version__)
 
     # ---- Tracker
     tracker, note, source = None, None, None
